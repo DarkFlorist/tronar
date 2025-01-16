@@ -1,0 +1,39 @@
+{
+	"compilerOptions": {
+		"target": "ESNext",
+		"module": "ES2022",
+		"moduleResolution": "bundler",
+		"rootDir": "app/ts",
+		"outDir": "app/js",
+		"sourceMap": true,
+		"inlineSources": true,
+		"declaration": true,
+		"declarationMap": true,
+		"skipLibCheck": true,
+		"strict": true,
+		"allowUnusedLabels": false,
+		"allowUnreachableCode": false,
+		"exactOptionalPropertyTypes": true,
+		"noFallthroughCasesInSwitch": true,
+		"noImplicitOverride": true,
+		"noImplicitReturns": true,
+		"noPropertyAccessFromIndexSignature": true,
+		"noUncheckedIndexedAccess": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"baseUrl": ".",
+		"paths": {
+			"@sdk/*": ["../sdk/ts/*"]
+		},
+		"jsx": "react-jsx",
+		"jsxImportSource": "preact",
+		"lib": ["ESNext", "DOM"],
+		"typeRoots": [ "./node_modules/@types" ],
+		// add any @types here, empty array instead of default to prevent @types/node from being picked up
+		"types": [],
+	},
+	"include": [
+		"./app/ts/**/*.ts",
+		"./app/ts/**/*.tsx",
+	],
+}

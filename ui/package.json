@@ -1,0 +1,25 @@
+{
+	"description": "PetalLock",
+	"repository": {},
+	"license": "Unlicense",
+	"type": "module",
+	"devDependencies": {
+		"@types/node": "22.5.4",
+		"@zoltu/file-copier": "3.0.0",
+		"typescript": "5.7.3",
+		"funtypes": "5.1.0"
+	},
+	"dependencies": {
+		"@preact/signals": "1.2.2",
+		"multiformats": "13.2.2",
+		"preact": "10.19.3",
+		"viem": "2.22.5"
+	},
+	"scripts": {
+		"setup": "npm ci --ignore-scripts && npm run vendor && npm run build",
+		"build": "tsc",
+		"watch": "tsc --watch",
+		"serve": "npx http-server ./app",
+		"vendor": "tsc --project tsconfig.vendor.json && node --enable-source-maps ./build/vendor.mjs && node --input-type=module -e \"import { promises as fs } from 'fs'; await fs.rm('./build/vendor.mjs')\""
+	}
+}
