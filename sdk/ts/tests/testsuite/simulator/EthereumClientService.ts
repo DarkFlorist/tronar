@@ -3,15 +3,15 @@ import { IUnsignedTransaction1559 } from './ethereum.js'
 import { MAX_BLOCK_CACHE, TIME_BETWEEN_BLOCKS } from './constants.js'
 import { IEthereumJSONRpcRequestHandler } from './EthereumJSONRpcRequestHandler.js'
 import { addressString, bigintToNumber, bytes32String } from './bigint.js'
-import { BlockCalls, EthSimulateV1Result, StateOverrides } from './ethSimulate-types.js'
+import { BlockCalls, EthSimulateV1Result } from './ethSimulate-types.js'
 import { EthGetStorageAtResponse, EthTransactionReceiptResponse, EthGetLogsRequest, EthGetLogsResponse, DappRequestTransaction } from './JsonRpc-types.js'
-import { MessageHashAndSignature, SignatureWithFakeSignerAddress, simulatePersonalSign } from './SimulationModeEthereumClientService.js'
+import { MessageHashAndSignature, simulatePersonalSign } from './SimulationModeEthereumClientService.js'
 import { getEcRecoverOverride } from './ethereumByteCodes.js'
 import * as funtypes from 'funtypes'
 import { RpcEntry } from './rpc.js'
 import { encodeAbiParameters, keccak256, parseSignature } from 'viem'
 import { stringAsHexString } from '../../../utils/utils.js'
-import { EthereumUnsignedTransaction } from '../wire-types.js'
+import { SimulationStateInput, SimulationStateInputBlock } from './visualizer-types.js'
 
 export type IEthereumClientService = Pick<EthereumClientService, keyof EthereumClientService>
 export class EthereumClientService {
@@ -148,7 +148,7 @@ export class EthereumClientService {
 
 	public readonly getChainId = () => this.getRpcEntry().chainId
 
-	public readonly getLogs = async (logFilter: EthGetLogsRequest, requestAbortController: AbortController | undefined) => {
+	public readonly getLogs = async (logFilter: EthGetLogsRequest, requestAbortController: AbortController | undefined): Promise<EthGetLogsResponse> => {
 		const response = await this.requestHandler.jsonRpcRequest({ method: 'eth_getLogs', params: [logFilter] }, requestAbortController)
 		return EthGetLogsResponse.parse(response)
 	}
@@ -191,7 +191,7 @@ export class EthereumClientService {
 		const call = {
 			method: 'eth_simulateV1',
 			params: [{
-				blockStateCalls: blockStateCalls,
+				blockStateCalls,
 				traceTransfers: true,
 				validation: false,
 			},
@@ -201,62 +201,70 @@ export class EthereumClientService {
 		return EthSimulateV1Result.parse(unvalidatedResult)
 	}
 
-	public readonly simulateTransactionsAndSignatures = async (transactionsInBlocks: readonly (readonly EthereumUnsignedTransaction[])[], signatures: readonly SignatureWithFakeSignerAddress[], blockNumber: bigint, requestAbortController: AbortController | undefined, extraAccountOverrides: StateOverrides = {}) => {
-		const transactionsWithRemoveZeroPricedOnes = transactionsInBlocks.map((block) => block.map((transaction) => {
-			if (transaction.type !== '1559') return transaction
-			const { maxFeePerGas, ...transactionWithoutMaxFee } = transaction
-			return { ...transactionWithoutMaxFee, ...maxFeePerGas === 0n ? {} : { maxFeePerGas } }
-		}))
-		const ecRecoverMovedToAddress = 0x123456n
-		const ecRecoverAddress = 1n
+	public readonly simulate = async (simulationStateInput: SimulationStateInput, blockNumber: bigint, requestAbortController: AbortController | undefined) => {
 		const parentBlock = await this.getBlock(requestAbortController, blockNumber)
 		if (parentBlock === null) throw new Error(`The block ${ blockNumber } is null`)
 
-		const encodePackedHash = (messageHashAndSignature: MessageHashAndSignature) => {
-			const sig = parseSignature(stringAsHexString(messageHashAndSignature.signature))
-			if (sig.v === undefined) throw new Error('v is missing')
-			const packed = BigInt(keccak256(encodeAbiParameters([{ type: 'bytes32' }, { type: 'uint8' }, { type: 'bytes32' }, { type: 'bytes32' }], [stringAsHexString(messageHashAndSignature.messageHash), bigintToNumber(sig.v), sig.r, sig.s])))
-			return packed
-		}
+		const getBlockStateCall = async (block: SimulationStateInputBlock, blockdelta: number) => {
+			const transactionsWithRemoveZeroPricedOnes = block.transactions.map((transaction) => {
+				if (transaction.type !== '1559') return transaction
+				const { maxFeePerGas, ...transactionWithoutMaxFee } = transaction
+				return { ...transactionWithoutMaxFee, ...maxFeePerGas === 0n ? {} : { maxFeePerGas } }
+			})
+			const ecRecoverMovedToAddress = 0x123456n
+			const ecRecoverAddress = 1n
 
-		// set mapping storage mapping() (instructed here: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html)
-		const getMappingsMemorySlot = (hash: EthereumBytes32) => keccak256(encodeAbiParameters([{ type: 'bytes32' }, { type: 'uint256' }], [bytes32String(hash), 0n]))
-		const signatureStructs = await Promise.all(signatures.map(async (sign) => ({ key: getMappingsMemorySlot(encodePackedHash(await simulatePersonalSign(sign.originalRequestParameters, sign.fakeSignedFor))), value: sign.fakeSignedFor })))
-		const stateSets = signatureStructs.reduce((acc, current) => {
-			acc[current.key] = current.value
-			return acc
-		}, {} as { [key: string]: bigint } )
+			const encodePackedHash = (messageHashAndSignature: MessageHashAndSignature) => {
+				const sig = parseSignature(stringAsHexString(messageHashAndSignature.signature))
+				if (sig.v === undefined) throw new Error('v is missing')
+				const packed = BigInt(keccak256(encodeAbiParameters([{ type: 'bytes32' }, { type: 'uint8' }, { type: 'bytes32' }, { type: 'bytes32' }], [stringAsHexString(messageHashAndSignature.messageHash), bigintToNumber(sig.v), sig.r, sig.s])))
+				return packed
+			}
 
-		const getBlockOverrides = (index: number) => ({
-			number: parentBlock.number + 1n + BigInt(index),
-			prevRandao: 0x1n,
-			time: new Date(parentBlock.timestamp.getTime() + (index + 1) * 12 * 1000),
-			gasLimit: parentBlock.gasLimit,
-			feeRecipient: parentBlock.miner,
-			baseFeePerGas: parentBlock.baseFeePerGas === undefined ? 15000000n : parentBlock.baseFeePerGas
-		})
+			// set mapping storage mapping() (instructed here: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html)
+			const getMappingsMemorySlot = (hash: EthereumBytes32) => keccak256(encodeAbiParameters([{ type: 'bytes32' }, { type: 'uint256' }], [bytes32String(hash), 0n]))
+			const signatureStructs = await Promise.all(block.signedMessages.map(async (sign) => ({ key: getMappingsMemorySlot(encodePackedHash(await simulatePersonalSign(sign.originalRequestParameters, sign.fakeSignedFor))), value: sign.fakeSignedFor })))
+			const stateSets = signatureStructs.reduce((acc, current) => {
+				acc[current.key] = current.value
+				return acc
+			}, {} as { [key: string]: bigint } )
 
-		const [firstBlocksTransactions, ...restofTheBlocks] = transactionsWithRemoveZeroPricedOnes
-		if (firstBlocksTransactions === undefined) throw new Error('No blocks specified for simulateTransactionsAndSignatures')
 
-		// add stateOverrides only to the first block (ecrecover overrides, make me rich and such)
-		const firstBlocksCalls = {
-			calls: firstBlocksTransactions,
-			blockOverride: getBlockOverrides(0),
-			stateOverrides: {
-				...signatures.length > 0 ? {
-					[addressString(ecRecoverAddress)]: {
-						movePrecompileToAddress: ecRecoverMovedToAddress,
-						code: getEcRecoverOverride(),
-						state: stateSets,
-					}
-				} : {},
-				...extraAccountOverrides,
+			const calculateCumulativeIncrements = (arr: EthereumQuantity[]): EthereumQuantity[] => {
+				return arr.reduce((result, current, index) => {
+					result.push(current + (result[index - 1] || 0n))
+					return result
+				}, [] as EthereumQuantity[])
+			}
+			const cumulativeDeltas = calculateCumulativeIncrements(simulationStateInput.blocks.map((block) => block.timeIncreaseDelta))
+
+			const getBlockOverrides = (index: number) => ({
+				number: parentBlock.number + 1n + BigInt(index),
+				prevRandao: 0x1n,
+				time: new Date(parentBlock.timestamp.getTime() + Number(cumulativeDeltas[index]) * 1000),
+				gasLimit: parentBlock.gasLimit,
+				feeRecipient: parentBlock.miner,
+				baseFeePerGas: parentBlock.baseFeePerGas === undefined ? 15000000n : parentBlock.baseFeePerGas
+			})
+			return {
+				calls: transactionsWithRemoveZeroPricedOnes,
+				blockOverrides: getBlockOverrides(blockdelta),
+				stateOverrides: {
+					...block.signedMessages.length > 0 ? {
+						[addressString(ecRecoverAddress)]: {
+							movePrecompileToAddress: ecRecoverMovedToAddress,
+							code: getEcRecoverOverride(),
+							state: stateSets,
+						}
+					} : {},
+					...block.stateOverrides,
+				}
 			}
 		}
-		const blockStateCalls = [firstBlocksCalls, ...restofTheBlocks.map((calls, index) => ({ calls, blockOverride: getBlockOverrides(index + 1) }))]
+
+		const blockStateCalls = await Promise.all(simulationStateInput.blocks.map(async (block, index) => await getBlockStateCall(block, index)))
 		const ethSimulateResults = await this.ethSimulateV1(blockStateCalls, parentBlock.number, requestAbortController)
-		if (ethSimulateResults.length !== transactionsWithRemoveZeroPricedOnes.length) throw new Error(`Ran Eth Simulate for ${ transactionsWithRemoveZeroPricedOnes.length } blocks but got ${ ethSimulateResults.length } blocks`)
+		if (ethSimulateResults.length !== blockStateCalls.length) throw new Error(`Ran Eth Simulate for ${ blockStateCalls.length } blocks but got ${ ethSimulateResults.length } blocks`)
 		return ethSimulateResults
 	}
 

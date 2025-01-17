@@ -113,9 +113,7 @@ export const governanceListProposals = async (client: ReadClient) => {
 	return await Promise.all(proposals.map((proposal) => getProposal(client, proposal)))
 }
 
-
-
-export const governanceListVotes = async (client: ReadClient, _proposalId: EthereumQuantity) => {
+export const governanceListVotes = async (client: ReadClient, proposalId: EthereumQuantity) => {
 	const events = ABIS.mainnet.governance['Governance Impl'].filter((x) => x.type === 'event')
 	const votedEvent = events.find((x) => x.name === 'Voted')
 	if (votedEvent === undefined) throw new Error('no voting events in the abi')
@@ -127,12 +125,9 @@ export const governanceListVotes = async (client: ReadClient, _proposalId: Ether
 		fromBlock: 20953618n, //TODO, add cache
 		toBlock: 'latest'
 	})
-	console.log('logs')
 	return logs.map((log) => {
-		console.log(log)
 		if (log.args.proposalId === undefined || log.args.voter === undefined || log.args.support === undefined || log.args.votes === undefined) throw new Error('args was undefined')
 		return {
-			voterAddress: EthereumAddress.parse(log.address),
 			proposalId: log.args.proposalId,
 			voter: EthereumAddress.parse(log.args.voter),
 			support: log.args.support,
@@ -140,23 +135,18 @@ export const governanceListVotes = async (client: ReadClient, _proposalId: Ether
 			blockNumber: log.blockNumber,
 			transactionHash: EthereumData.parse(log.transactionHash)
 		}
-	})
+	}).filter((log) => log.proposalId === proposalId)
 }
 
 export const getVotingReasons = async (client: ReadClient, transactionHashes: EthereumBytes32[]) => {
 	return await Promise.all(transactionHashes.map(async (transactionHash) => {
 		const abi = ABIS.mainnet.governance['Governance Impl']
 		const transaction = await client.getTransaction({ hash: stringAsHexString(serialize(EthereumBytes32, transactionHash)) })
-		console.log('got tx')
-		console.log(transaction)
 		if (transaction.to !== addressString(CONTRACTS.mainnet.governance['Governance Contract'])) throw new Error('not a transaction to governance contract')
 		const { functionName, args } = decodeFunctionData({ abi, data: transaction.input });
 		if (functionName !== 'castVote' && functionName !== 'castDelegatedVote') throw new Error(`${ functionName } is not castVote or castDelegatedVote`)
 		const functionData = encodeFunctionData({ abi, functionName, args })
-		console.log('encoed')
-		console.log(transaction.input)
 		const jsonString = decodeAbiParameters([{ name: 'jsonString', type: 'string' }], `0x${ transaction.input.slice(functionData.length) }`)[0]
-		console.log(jsonString)
 		const [contact, message] = TornadoVotingReason.parse(JSON.parse(jsonString))
 		return { contact, message }
 	}))

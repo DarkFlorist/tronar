@@ -29,11 +29,30 @@ export const SignedMessageTransaction = funtypes.ReadonlyObject({
 	messageIdentifier: EthereumQuantity,
 })
 
-export type SimulationState = funtypes.Static<typeof SimulationState>
-export const SimulationState = funtypes.ReadonlyObject({
+export type SimulationStateInputBlock = funtypes.Static<typeof SimulationStateInputBlock>
+export const SimulationStateInputBlock = funtypes.ReadonlyObject({
+	stateOverrides: StateOverrides,
+	transactions: funtypes.ReadonlyArray(EthereumSendableSignedTransaction),
+	signedMessages: funtypes.ReadonlyArray(SignedMessageTransaction),
+	timeIncreaseDelta: EthereumQuantity,
+})
+
+export type SimulationStateInput = funtypes.Static<typeof SimulationStateInput>
+export const SimulationStateInput = funtypes.ReadonlyObject({
+	blocks: funtypes.ReadonlyArray(SimulationStateInputBlock)
+})
+
+export type SimulationStateBlock = funtypes.Static<typeof SimulationStateBlock>
+export const SimulationStateBlock = funtypes.ReadonlyObject({
 	stateOverrides: StateOverrides,
 	simulatedTransactions: funtypes.ReadonlyArray(SimulatedTransaction),
 	signedMessages: funtypes.ReadonlyArray(SignedMessageTransaction),
+	timeIncreaseDelta: EthereumQuantity
+})
+
+export type SimulationState = funtypes.Static<typeof SimulationState>
+export const SimulationState = funtypes.ReadonlyObject({
+	blocks: funtypes.ReadonlyArray(SimulationStateBlock),
 	blockNumber: EthereumQuantity,
 	blockTimestamp: EthereumTimestamp,
 	baseFeePerGas: EthereumQuantity,
@@ -51,31 +70,4 @@ export const NamedTokenId = funtypes.ReadonlyObject({
 	tokenAddress: EthereumAddress,
 	tokenId: EthereumQuantity,
 	tokenIdName: funtypes.String
-})
-/*
-type NewHeadsSubscription = funtypes.Static<typeof NewHeadsSubscription>
-const NewHeadsSubscription = funtypes.ReadonlyObject({
-	type: funtypes.Literal('newHeads'),
-	subscriptionOrFilterId: funtypes.String,
-	params: EthSubscribeParams,
-	subscriptionCreatorSocket: WebsiteSocket,
-})
-
-type NewEthfilter = funtypes.Static<typeof NewEthfilter>
-const NewEthfilter = funtypes.ReadonlyObject({
-	type: funtypes.Literal('eth_newFilter'),
-	subscriptionOrFilterId: funtypes.String,
-	params: EthNewFilter,
-	subscriptionCreatorSocket: WebsiteSocket,
-	calledInlastBlock: EthereumQuantity,
-})
-
-export type EthereumSubscriptionsAndFilters = funtypes.Static<typeof EthereumSubscriptionsAndFilters>
-export const EthereumSubscriptionsAndFilters = funtypes.ReadonlyArray(funtypes.Union(NewEthfilter, NewHeadsSubscription))
-*/
-
-export type TransactionStack = funtypes.Static<typeof TransactionStack>
-export const TransactionStack = funtypes.ReadonlyObject({
-	transactions: funtypes.ReadonlyArray(EthereumSendableSignedTransaction),
-	signedMessages: funtypes.ReadonlyArray(SignedMessageTransaction)
 })

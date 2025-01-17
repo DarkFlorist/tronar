@@ -31,7 +31,7 @@ export class EthereumJSONRpcRequestHandler {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ jsonrpc: '2.0', id: requestId, ...serialized })
 		}
-		//console.log(JSON.stringify({ jsonrpc: '2.0', id: requestId, ...serialized }))
+		// console.log(JSON.stringify({ jsonrpc: '2.0', id: requestId, ...serialized }))
 		if (!this.caching) {
 			const response = await fetchWithTimeout(this.rpcUrl, payload, timeoutMs, requestAbortController)
 			const responseObject = response.ok ? { responseState: 'success' as const, response: await response.json() } : { responseState: 'failed' as const, response }

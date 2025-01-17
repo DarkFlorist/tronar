@@ -2,7 +2,7 @@ import { EIP1193Provider } from 'viem'
 import { CANNOT_SIMULATE_OFF_LEGACY_BLOCK, DEFAULT_CALL_ADDRESS } from './constants.js'
 import { EthereumClientService } from './EthereumClientService.js'
 import { EthCallParams, EthereumJsonRpcRequest, EthGetLogsRequest, EthGetLogsResponse, SendTransactionParams } from './JsonRpc-types.js'
-import { appendTransaction, getInputFieldFromDataOrInput, getSimulatedBlockNumber, getSimulatedLogs, getSimulatedTransactionByHash, getSimulatedTransactionCount, mockSignTransaction, simulatedCall, simulateEstimateGas } from './SimulationModeEthereumClientService.js'
+import { appendTransaction, getInputFieldFromDataOrInput, getSimulatedBlockNumber, getSimulatedLogs, getSimulatedTransactionByHash, getSimulatedTransactionCountOverStack, mockSignTransaction, simulatedCall, simulateEstimateGas } from './SimulationModeEthereumClientService.js'
 import { SimulationState } from './visualizer-types.js'
 import { StateOverrides } from './ethSimulate-types.js'
 import { EthereumJSONRpcRequestHandler } from './EthereumJSONRpcRequestHandler.js'
@@ -20,7 +20,7 @@ async function singleCallWithFromOverride(ethereumClientService: EthereumClientS
 		type: '1559' as const,
 		from,
 		chainId: ethereumClientService.getChainId(),
-		nonce: await getSimulatedTransactionCount(ethereumClientService, undefined, simulationState, from),
+		nonce: await getSimulatedTransactionCountOverStack(ethereumClientService, undefined, simulationState, from),
 		maxFeePerGas: gasPrice,
 		maxPriorityFeePerGas: 0n,
 		to: callParams.to === undefined ? null : callParams.to,
@@ -75,12 +75,12 @@ export async function binarySearchLogs(ethereumClientService: EthereumClientServ
 	return logsSoFar.flat()
 }
 
-export const formEthSendTransaction = async (ethereumClientService: EthereumClientService, requestAbortController: AbortController | undefined, simulationState: SimulationState | undefined, activeAddress: bigint | undefined, sendTransactionParams: SendTransactionParams) => {
+export const formEthSendTransaction = async (ethereumClientService: EthereumClientService, requestAbortController: AbortController | undefined, simulationState: SimulationState | undefined, blockDelta: number, activeAddress: bigint | undefined, sendTransactionParams: SendTransactionParams) => {
 	const parentBlockPromise = ethereumClientService.getBlock(requestAbortController) // we are getting the real block here, as we are not interested in the current block where this is going to be included, but the parent
 	const transactionDetails = sendTransactionParams.params[0]
 	if (activeAddress === undefined) throw new Error('Access to active address is denied')
 	const from = transactionDetails.from !== undefined ? transactionDetails.from : activeAddress
-	const transactionCountPromise = getSimulatedTransactionCount(ethereumClientService, requestAbortController, simulationState, from)
+	const transactionCountPromise = getSimulatedTransactionCountOverStack(ethereumClientService, requestAbortController, simulationState, from)
 	const parentBlock = await parentBlockPromise
 	if (parentBlock === null) throw new Error('The latest block is null')
 	if (parentBlock.baseFeePerGas === undefined) throw new Error(CANNOT_SIMULATE_OFF_LEGACY_BLOCK)
@@ -103,7 +103,7 @@ export const formEthSendTransaction = async (ethereumClientService: EthereumClie
 	}
 	if (transactionDetails.gas === undefined) {
 		try {
-			const estimateGas = await simulateEstimateGas(ethereumClientService, requestAbortController, simulationState, transactionWithoutGas)
+			const estimateGas = await simulateEstimateGas(ethereumClientService, requestAbortController, simulationState, transactionWithoutGas, blockDelta)
 			if ('error' in estimateGas) return { ...extraParams, ...estimateGas, success: false } as const
 			return { transaction: { ...transactionWithoutGas, gas: estimateGas.gas }, ...extraParams, success: true } as const
 		} catch(error: unknown) {
@@ -116,7 +116,10 @@ export const formEthSendTransaction = async (ethereumClientService: EthereumClie
 	return { transaction: { ...transactionWithoutGas, gas: transactionDetails.gas }, ...extraParams, success: true } as const
 }
 
-export type MockWindowEthereum = EIP1193Provider & { setStateOverrides: (stateOverrides: StateOverrides) => Promise<void> }
+export type MockWindowEthereum = EIP1193Provider & {
+	addStateOverrides: (stateOverrides: StateOverrides) => Promise<void>
+	advanceTime: (amountInSeconds: EthereumQuantity) => Promise<void>
+}
 export const getMockedEthSimulateWindowEthereum = (): MockWindowEthereum => {
 	const httpsRpc = 'https://ethereum.dark.florist'
 	const ethereumClientService = new EthereumClientService(
@@ -151,10 +154,11 @@ export const getMockedEthSimulateWindowEthereum = (): MockWindowEthereum => {
 				}
 				case 'eth_sendTransaction': {
 					//TODO, only one transaction should be included at once
-					const transaction = await formEthSendTransaction(ethereumClientService, undefined, simulationState, activeAddress, args)
+					const blockDelta = simulationState?.blocks.length || 0 // always create new block to add transactions to
+					const transaction = await formEthSendTransaction(ethereumClientService, undefined, simulationState, blockDelta, activeAddress, args)
 					if (transaction.success === false) throw new Error(transaction.error?.message)
 					const signed = mockSignTransaction(transaction.transaction)
-					simulationState = await appendTransaction(ethereumClientService, undefined, simulationState, transaction.transaction, {})
+					simulationState = await appendTransaction(ethereumClientService, undefined, simulationState, [transaction.transaction], blockDelta)
 					return EthereumBytes32.serialize(signed.hash)
 				}
 				default: {
@@ -169,19 +173,32 @@ export const getMockedEthSimulateWindowEthereum = (): MockWindowEthereum => {
 		removeListener: () => {
 			console.log('removeListener')
 		},
-		setStateOverrides: async (stateOverrides: StateOverrides) => {
+		addStateOverrides: async (stateOverrides: StateOverrides) => {
+			const newBlock = { simulatedTransactions: [], signedMessages: [], stateOverrides, timeIncreaseDelta: 12n }
 			if (simulationState === undefined) {
 				simulationState = {
-					simulatedTransactions: [],
+					blocks: [newBlock],
 					blockNumber: await ethereumClientService.getBlockNumber(undefined),
 					blockTimestamp: new Date(),
 					simulationConductedTimestamp: new Date(),
-					signedMessages: [],
 					baseFeePerGas: 0n,
-					stateOverrides,
 				}
 			} else {
-				simulationState = { ...simulationState, stateOverrides }
+				simulationState = { ...simulationState, blocks: [...simulationState.blocks, newBlock] }
+			}
+		},
+		advanceTime: async (amountInSeconds: EthereumQuantity) => {
+			const newBlock = { simulatedTransactions: [], signedMessages: [], stateOverrides: {}, timeIncreaseDelta: amountInSeconds }
+			if (simulationState === undefined) {
+				simulationState = {
+					blocks: [newBlock],
+					blockNumber: await ethereumClientService.getBlockNumber(undefined),
+					blockTimestamp: new Date(),
+					simulationConductedTimestamp: new Date(),
+					baseFeePerGas: 0n,
+				}
+			} else {
+				simulationState = { ...simulationState, blocks: [...simulationState.blocks, newBlock] }
 			}
 		}
 	}

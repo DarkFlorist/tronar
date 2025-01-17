@@ -1,4 +1,4 @@
-import { approveTorn, getProposal, getProposalEvents, getTornBalance, getVotingReasons, governanceCastVote, governanceCreateProposal, governanceGetProposalCount, governanceListProposals, governanceListVotes, governanceLockWithApproval } from '../governance.js'
+import { approveTorn, getProposal, getProposalEvents, getTornBalance, getVotingReasons, governanceCastVote, governanceCreateProposal, governanceGetProposalCount, governanceListProposals, governanceListVotes, governanceLockWithApproval, governanceUnLockStake } from '../governance.js'
 import { EthereumAddress, EthereumQuantity } from '../types/types.js'
 import { CONTRACTS } from '../utils/constants.js'
 import { runTestsSequentially } from './testsuite/ethSimulateTestSuite.js'
@@ -43,7 +43,7 @@ const mintTorn = async (mockWindowEthereum: MockWindowEthereum, mintAmounts: { a
 		acc[current.key] = current.value
 		return acc
 	}, {} as { [key: string]: bigint } )
-	await mockWindowEthereum.setStateOverrides({ [addressString(tornAddress)]: { stateDiff: stateSets }})
+	await mockWindowEthereum.addStateOverrides({ [addressString(tornAddress)]: { stateDiff: stateSets }})
 }
 
 const createProposalAndVote = async() => {
@@ -56,47 +56,42 @@ const createProposalAndVote = async() => {
 	await mintTorn(mockedWindowEthereum, [{ address: vitalik, amount: tornToUse }])
 	const tornBalance = await getTornBalance(client, vitalik)
 	if (tornBalance !== tornToUse) throw new Error(`Wrong torn balance ${ tornBalance } !== ${ tornToUse }`)
-	await approveTorn(client, CONTRACTS.mainnet.governance['Governance Contract'], tornToUse/2n)
-	await governanceLockWithApproval(client, tornToUse/2n)
+	await approveTorn(client, CONTRACTS.mainnet.governance['Governance Contract'], tornToUse)
+	await governanceLockWithApproval(client, tornToUse)
 	await governanceCreateProposal(client, { target, description })
 	const newProposalId = await governanceGetProposalCount(client)
-	console.log('getproposlss', newProposalId)
 	const proposalData = await getProposal(client, newProposalId)
 	if (proposalData.target !== target) throw new Error('Target is wrong')
 	if (proposalData.proposer !== vitalik) throw new Error('Proposer is wrong')
 	if (proposalData.forVotes !== 0n) throw new Error('For votes are wrong')
 	if (proposalData.executed !== false) throw new Error('Execution is wrong')
-	console.log('getProposalEvents')
 	const proposals = await getProposalEvents(client)
-	console.log('props')
-	console.log(proposals)
 	const ourProposalEvent = proposals.find((proposal) => proposal.proposalId === newProposalId)
-	console.log(ourProposalEvent)
 	if (ourProposalEvent === undefined) throw new Error('Proposal event was not found')
 	if (ourProposalEvent.description !== description) throw new Error('description mismatch')
 	if (ourProposalEvent.proposalId !== newProposalId) throw new Error('proposalId mismatch')
 	if (ourProposalEvent.proposer !== vitalik) throw new Error('proposer mismatch')
 	if (ourProposalEvent.target !== target) throw new Error('target mismatch')
-
+	const VOTING_DELAY = 75n
+	await mockedWindowEthereum.advanceTime(VOTING_DELAY)
 	await governanceCastVote(client, newProposalId, true)
 	const votes = await governanceListVotes(client, newProposalId)
 	const ourVote = votes[0]
 	if (votes.length !== 1 || ourVote === undefined) throw new Error('Cant see our vote')
 	if (ourVote.proposalId !== newProposalId) throw new Error('Wrong proposalid')
 	if (ourVote.support !== true) throw new Error('Wrong support')
-	if (ourVote.voterAddress !== vitalik) throw new Error('Wrong voterAddress')
-	if (ourVote.votes !== 1n) throw new Error('Wrong votes count')
-
-	// need timeforwarder
-	//await governanceUnLockStake(client, tornToUse)
+	if (ourVote.voter !== vitalik) throw new Error('Wrong voterAddress')
+	if (ourVote.votes !== tornToUse) throw new Error('Wrong votes count')
+	await mockedWindowEthereum.advanceTime(100000000000n)
+	await governanceUnLockStake(client, tornToUse)
 }
 
 const allTests = async () => {
 	await runTestsSequentially([
-		['Can get proposal count', canGetProposalCount, true],
-		['Can list proposals', listProposals, true],
-		['Can list votes', listVotes, true],
-		['Can get voting reasons', votingReasons, true],
+		['Can get proposal count', canGetProposalCount, undefined],
+		['Can list proposals', listProposals, undefined],
+		['Can list votes', listVotes, undefined],
+		['Can get voting reasons', votingReasons, undefined],
 		['Can create Proposals and vote', createProposalAndVote, undefined]
 	])
 }
