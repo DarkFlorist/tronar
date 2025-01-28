@@ -1,4 +1,5 @@
 import * as funtypes from 'funtypes'
+import { EthereumData } from '../tests/testsuite/wire-types'
 export type HexString = `0x${ string }`
 
 const AddressParser: funtypes.ParsedValue<funtypes.String, bigint>['config'] = {
@@ -46,3 +47,63 @@ export type UnionToIntersection<T> = (T extends unknown ? (k: T) => void : never
 
 export const TornadoVotingReason = funtypes.ReadonlyTuple(funtypes.String, funtypes.String)
 export type TornadoVotingReason = funtypes.Static<typeof TornadoVotingReason>
+
+export type Proposal = funtypes.Static<typeof Proposal>
+export const Proposal = funtypes.ReadonlyObject({
+	proposer: EthereumAddress,
+	target: EthereumAddress,
+	startTime: EthereumQuantity,
+	endTime: EthereumQuantity,
+	forVotes: EthereumQuantity,
+	againstVotes: EthereumQuantity,
+	executed: funtypes.Boolean,
+	extended: funtypes.Boolean,
+})
+
+export type Proposals = funtypes.Static<typeof Proposals>
+export const Proposals = funtypes.ReadonlyArray(Proposal)
+
+export type ProposalEvent = funtypes.Static<typeof ProposalEvent>
+export const ProposalEvent = funtypes.ReadonlyObject({
+    blockNumber: EthereumQuantity,
+    description: funtypes.String,
+    proposalId: EthereumQuantity,
+    proposer: EthereumQuantity,
+    target: EthereumQuantity,
+    startTime: EthereumQuantity,
+    endTime: EthereumQuantity,
+})
+
+export type ProposalEvents = funtypes.Static<typeof ProposalEvents>
+export const ProposalEvents = funtypes.ReadonlyArray(ProposalEvent)
+
+export type GovernanceVote = funtypes.Static<typeof GovernanceVote>
+export const GovernanceVote = funtypes.ReadonlyObject({
+	proposalId: EthereumQuantity,
+	voter: EthereumAddress,
+	support: funtypes.Boolean,
+	votes: EthereumQuantity,
+	blockNumber: EthereumQuantity,
+	transactionHash: EthereumData,
+})
+
+export type GovernanceVotes = funtypes.Static<typeof GovernanceVotes>
+export const GovernanceVotes = funtypes.ReadonlyArray(GovernanceVote)
+
+export type ProposalsCache = funtypes.Static<typeof ProposalsCache>
+export const ProposalsCache = funtypes.ReadonlyObject({
+	proposalCount: EthereumQuantity,
+	cache: Proposals
+})
+
+export type ProposalEventsCache = funtypes.Static<typeof ProposalEventsCache>
+export const ProposalEventsCache = funtypes.ReadonlyObject({
+	latestBlock: EthereumQuantity,
+	cache: ProposalEvents
+})
+
+export type GovernanceVotesCache = funtypes.Static<typeof GovernanceVotesCache>
+export const GovernanceVotesCache = funtypes.ReadonlyObject({
+	latestBlock: EthereumQuantity,
+	cache: GovernanceVotes,
+})

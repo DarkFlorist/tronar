@@ -1,5 +1,5 @@
 import * as path from 'path'
-import * as url from 'url';
+import * as url from 'url'
 import { promises as fs } from 'fs'
 import { FileType, recursiveDirectoryCopy } from '@zoltu/file-copier'
 
@@ -21,7 +21,6 @@ const dependencyPaths: Dependency[] = [
     { packageName: 'abitype', subfolderToVendor: 'dist/esm', mainEntrypointFile: 'exports/index.js', alternateEntrypoints: { } },
 	{ packageName: '@noble/hashes', subfolderToVendor: 'esm', mainEntrypointFile: 'index.js', alternateEntrypoints: { 'crypto': 'crypto.js', 'sha3': 'sha3.js', 'utils': 'utils.js', '_assert': '_assert.js', 'sha256': 'sha256.js', 'sha512': 'sha512.js', 'pbkdf2': 'pbkdf2.js', 'hmac': 'hmac.js', 'ripemd160': 'ripemd160.js' } },
 	{ packageName: '@noble/curves', subfolderToVendor: 'esm', mainEntrypointFile: 'index.js', alternateEntrypoints: { 'secp256k1': 'secp256k1.js', 'abstract/modular': 'abstract/modular.js', 'abstract/utils': 'abstract/utils.js' } },
-	{ packageName: 'webauthn-p256', subfolderToVendor: '_esm', mainEntrypointFile: 'index.js', alternateEntrypoints: {} },
 	{ packageName: 'multiformats', subfolderToVendor: 'dist/src', mainEntrypointFile: 'index.js', alternateEntrypoints: { 'bases/base32': 'bases/base32.js', 'bases/base36': 'bases/base36.js', 'bases/base58': 'bases/base58.js', 'bases/base64': 'bases/base64.js', 'cid': 'cid.js', 'hashes/digest': 'hashes/digest.js' } },
 	{ packageName: 'funtypes', subfolderToVendor: 'lib', mainEntrypointFile: 'index.mjs', alternateEntrypoints: {} },
 ]

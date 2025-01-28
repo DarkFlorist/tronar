@@ -1,4 +1,4 @@
-import { approveTorn, getProposal, getProposalEvents, getTornBalance, getVotingReasons, governanceCastVote, governanceCreateProposal, governanceGetProposalCount, governanceListProposals, governanceListVotes, governanceLockWithApproval, governanceUnLockStake } from '../governance.js'
+import { approveTorn, getProposal, getProposalEvents, getTornBalance, getVotingReasons, governanceCastVote, governanceCreateProposal, governanceGetProposalCount, governanceListProposals, governanceListVotesForId, governanceLockWithApproval, governanceUnLockStake } from '../governance.js'
 import { EthereumAddress, EthereumQuantity } from '../types/types.js'
 import { CONTRACTS } from '../utils/constants.js'
 import { runTestsSequentially } from './testsuite/ethSimulateTestSuite.js'
@@ -17,13 +17,15 @@ const canGetProposalCount = async () => {
 
 const listProposals = async () => {
 	const client = createWriteClient(getMockedEthSimulateWindowEthereum(), vitalik)
-	const proposals = await governanceListProposals(client)
+	const proposalCount = await governanceGetProposalCount(client)
+	const proposals = await governanceListProposals(client, proposalCount)
 	if (proposals.length <= 0n) throw new Error('No proposals')
 }
 
 const listVotes = async () => {
 	const client = createWriteClient(getMockedEthSimulateWindowEthereum(), vitalik)
-	const votes = await governanceListVotes(client, 0n)
+	const latestBlock = await client.getBlockNumber()
+	const votes = await governanceListVotesForId(client, latestBlock, 0n)
 	if (votes.length <= 0n) throw new Error('No proposals')
 }
 
@@ -65,7 +67,8 @@ const createProposalAndVote = async() => {
 	if (proposalData.proposer !== vitalik) throw new Error('Proposer is wrong')
 	if (proposalData.forVotes !== 0n) throw new Error('For votes are wrong')
 	if (proposalData.executed !== false) throw new Error('Execution is wrong')
-	const proposals = await getProposalEvents(client)
+	const latestBlock = await client.getBlockNumber()
+	const proposals = await getProposalEvents(client, latestBlock)
 	const ourProposalEvent = proposals.find((proposal) => proposal.proposalId === newProposalId)
 	if (ourProposalEvent === undefined) throw new Error('Proposal event was not found')
 	if (ourProposalEvent.description !== description) throw new Error('description mismatch')
@@ -75,7 +78,7 @@ const createProposalAndVote = async() => {
 	const VOTING_DELAY = 75n
 	await mockedWindowEthereum.advanceTime(VOTING_DELAY)
 	await governanceCastVote(client, newProposalId, true)
-	const votes = await governanceListVotes(client, newProposalId)
+	const votes = await governanceListVotesForId(client, latestBlock, newProposalId)
 	const ourVote = votes[0]
 	if (votes.length !== 1 || ourVote === undefined) throw new Error('Cant see our vote')
 	if (ourVote.proposalId !== newProposalId) throw new Error('Wrong proposalid')

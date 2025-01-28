@@ -1,11 +1,12 @@
 import { decodeAbiParameters, decodeFunctionData, encodeFunctionData } from 'viem'
 import { mainnet } from 'viem/chains'
-import { EthereumAddress, EthereumBytes32, EthereumQuantity, TornadoVotingReason } from './types/types.js'
+import { EthereumAddress, EthereumBytes32, EthereumQuantity, Proposal, ProposalEvents, TornadoVotingReason } from './types/types.js'
 import { ABIS } from './abi/abis.js'
-import { addressString, bigintToNumber, serialize, stringAsHexString } from './utils/utils.js'
+import { addressString, bigintToNumber, createRange, serialize, stringAsHexString } from './utils/utils.js'
 import { CONTRACTS } from './utils/constants.js'
 import { ReadClient, WriteClient } from './wallet.js'
 import { EthereumData } from './tests/testsuite/wire-types.js'
+import { getCacheGovernanceListVotes, getCacheProposalEvents, getCacheProposals } from './utils/readCache.js'
 
 // https://etherscan.io/address/0x5efda50f22d34f262c29268506c5fa42cb56a1ce#writeProxyContract
 export const governanceLockStake = async (client: WriteClient, params: { owner: EthereumAddress, amount: EthereumQuantity, deadline: EthereumQuantity, v: EthereumQuantity, r: EthereumBytes32, s: EthereumBytes32 }) => {
@@ -57,26 +58,6 @@ export const governanceGetProposalCount = async (client: ReadClient) => {
 	})
 }
 
-type Proposal = {
-	// Creator of the proposal
-	proposer: EthereumAddress
-	// target addresses for the call to be made
-	target: EthereumAddress
-	// The block at which voting begins
-	startTime: EthereumQuantity
-	// The block at which voting ends: votes must be cast prior to this block
-	endTime: EthereumQuantity
-	// Current number of votes in favor of this proposal
-	forVotes: EthereumQuantity
-	// Current number of votes in opposition to this proposal
-	againstVotes: EthereumQuantity
-	// Flag marking whether the proposal has been executed
-	executed: boolean
-	// Flag marking whether the proposal voting time has been extended
-	// Voting time can be extended once, if the proposal outcome has changed during CLOSING_PERIOD
-	extended: boolean
-}
-
 export const getProposal = async (client: ReadClient, proposalId: EthereumQuantity): Promise<Proposal> => {
 	const returnValue = await client.readContract({
 		abi: ABIS.mainnet.governance['Governance Impl'],
@@ -106,26 +87,26 @@ export const getProposal = async (client: ReadClient, proposalId: EthereumQuanti
 	}
 }
 
-export const governanceListProposals = async (client: ReadClient) => {
-	const proposalCount = await governanceGetProposalCount(client)
+export const governanceListProposals = async (client: ReadClient, proposalCount: bigint) => {
 	if (proposalCount === 0n) return []
-	const proposals = Array.from(Array(proposalCount).keys()).map((x) => BigInt(x))
-	return await Promise.all(proposals.map((proposal) => getProposal(client, proposal)))
+	const cache = getCacheProposals()
+	const proposals = (createRange(Number(cache.proposalCount), Number(proposalCount))).map((x) => BigInt(x))
+	return [...cache.cache, ...await Promise.all(proposals.map((proposal) => getProposal(client, proposal)))]
 }
 
-export const governanceListVotes = async (client: ReadClient, proposalId: EthereumQuantity) => {
+export const governanceListVotes = async (client: ReadClient, latestBlockNumber: bigint) => {
 	const events = ABIS.mainnet.governance['Governance Impl'].filter((x) => x.type === 'event')
 	const votedEvent = events.find((x) => x.name === 'Voted')
 	if (votedEvent === undefined) throw new Error('no voting events in the abi')
-
+	const cache = getCacheGovernanceListVotes()
 	const logs = await client.getLogs({
 		address: addressString(CONTRACTS.mainnet.governance['Governance Contract']),
 		event: votedEvent,
 		args: { },
-		fromBlock: 20953618n, //TODO, add cache
-		toBlock: 'latest'
+		fromBlock: cache.latestBlock,
+		toBlock: latestBlockNumber
 	})
-	return logs.map((log) => {
+	return [...cache.cache, ...logs.map((log) => {
 		if (log.args.proposalId === undefined || log.args.voter === undefined || log.args.support === undefined || log.args.votes === undefined) throw new Error('args was undefined')
 		return {
 			proposalId: log.args.proposalId,
@@ -135,7 +116,11 @@ export const governanceListVotes = async (client: ReadClient, proposalId: Ethere
 			blockNumber: log.blockNumber,
 			transactionHash: EthereumData.parse(log.transactionHash)
 		}
-	}).filter((log) => log.proposalId === proposalId)
+	})]
+}
+
+export const governanceListVotesForId = async (client: ReadClient, latestBlockNumber: bigint, proposalId: EthereumQuantity) => {
+	return (await governanceListVotes(client, latestBlockNumber)).filter((log) => log.proposalId === proposalId)
 }
 
 export const getVotingReasons = async (client: ReadClient, transactionHashes: EthereumBytes32[]) => {
@@ -152,17 +137,18 @@ export const getVotingReasons = async (client: ReadClient, transactionHashes: Et
 	}))
 }
 
-export const getProposalEvents = async (client: ReadClient) => {
+export const getProposalEvents = async (client: ReadClient, latestBlockNumber: bigint): Promise<ProposalEvents> => {
 	const events = ABIS.mainnet.governance['Governance Impl'].filter((x) => x.type === 'event')
 	const votedEvent = events.find((x) => x.name === 'ProposalCreated')
 	if (votedEvent === undefined) throw new Error('no voting events in the abi')
+	const cache = getCacheProposalEvents()
 	const logs = await client.getLogs({
 		address: addressString(CONTRACTS.mainnet.governance['Governance Contract']),
 		event: votedEvent,
-		fromBlock: 20953618n, //TODO, add cache
-		toBlock: 'latest'
+		fromBlock: cache.latestBlock,
+		toBlock: latestBlockNumber
 	})
-	return logs.map((log) => {
+	return [...cache.cache, ...logs.map((log) => {
 		if (log.args.description === undefined ||
 			log.args.target === undefined ||
 			log.args.startTime === undefined ||
@@ -178,7 +164,7 @@ export const getProposalEvents = async (client: ReadClient) => {
 			startTime: log.args.startTime,
 			endTime: log.args.endTime,
 		}
-	})
+	})]
 }
 
 export const governanceCastVote = async (client: WriteClient, proposalId: EthereumQuantity, support: boolean) => {

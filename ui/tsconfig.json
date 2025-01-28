@@ -23,7 +23,7 @@
 		"noUnusedParameters": true,
 		"baseUrl": ".",
 		"paths": {
-			"@sdk/*": ["../sdk/ts/*"]
+			"@tronar/*": ["../sdk/js/*"] // Optional, but useful for IDE hints
 		},
 		"jsx": "react-jsx",
 		"jsxImportSource": "preact",

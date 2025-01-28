@@ -35,3 +35,9 @@ export const stringAsHexString = (value: string): `0x${ string }` => {
 
 export const bytes32String = (bytes32: bigint): `0x${ string }` => `0x${ bytes32.toString(16).padStart(64, '0') }`
 
+export const createRange = (a: number, b: number): number[] => {
+	const result = []
+	for (let i = a; i <= b; i++) { result.push(i) }
+	return result
+}
+

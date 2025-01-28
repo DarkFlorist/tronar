@@ -5,14 +5,27 @@
 	"main": "governance.js",
 	"type": "module",
 	"devDependencies": {
+		"@types/node": "22.5.4",
 		"funtypes": "5.1.0",
 		"typescript": "5.7.3"
 	},
 	"dependencies": {
-		"viem": "2.22.8"
+		"viem": "2.22.15"
 	},
 	"scripts": {
 		"build": "tsc",
-		"test": "tsc && node ./js/tests/test.js"
+		"test": "tsc && node ./js/tests/test.js",
+		"cache": "tsc && node ./js/createCache.js"
+	},
+	"exports": {
+		".": "./js/index.js",
+		"./components/connect": "./js/components/connect.js",
+		"./governance": "./js/governance.js"
+	},
+	"typesVersions": {
+		"*": {
+			"components/connect": ["./js/components/connect"],
+			"governance": ["./js/governance"]
+		}
 	}
 }
