@@ -10,7 +10,7 @@
 		"typescript": "5.7.3"
 	},
 	"dependencies": {
-		"viem": "2.22.15"
+		"viem": "2.22.17"
 	},
 	"scripts": {
 		"build": "tsc",
@@ -18,14 +18,15 @@
 		"cache": "tsc && node ./js/createCache.js"
 	},
 	"exports": {
-		".": "./js/index.js",
 		"./components/connect": "./js/components/connect.js",
-		"./governance": "./js/governance.js"
+		"./governance": "./js/governance.js",
+		"./wallet": "./js/wallet.js"
 	},
 	"typesVersions": {
 		"*": {
 			"components/connect": ["./js/components/connect"],
-			"governance": ["./js/governance"]
+			"governance": ["./js/governance"],
+			"wallet": ["./js/wallet"]
 		}
 	}
 }

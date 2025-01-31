@@ -1,12 +1,49 @@
-import { decodeAbiParameters, decodeFunctionData, encodeFunctionData } from 'viem'
+import { AbiEvent, BlockNumber, BlockTag, decodeAbiParameters, decodeFunctionData, encodeFunctionData, GetLogsParameters, GetLogsReturnType, parseEventLogs, TimeoutError } from 'viem'
 import { mainnet } from 'viem/chains'
 import { EthereumAddress, EthereumBytes32, EthereumQuantity, Proposal, ProposalEvents, TornadoVotingReason } from './types/types.js'
 import { ABIS } from './abi/abis.js'
 import { addressString, bigintToNumber, createRange, serialize, stringAsHexString } from './utils/utils.js'
 import { CONTRACTS } from './utils/constants.js'
 import { ReadClient, WriteClient } from './wallet.js'
-import { EthereumData } from './tests/testsuite/wire-types.js'
+import { EthereumData } from './types/wire-types.js'
 import { getCacheGovernanceListVotes, getCacheProposalEvents, getCacheProposals } from './utils/readCache.js'
+import { JsonRpcResponseError } from './tests/testsuite/simulator/errors.js'
+
+export async function binarySearchLogs(client: ReadClient, logFilter: GetLogsParameters<AbiEvent>): Promise<GetLogsReturnType<AbiEvent, undefined, undefined, BlockNumber | BlockTag, BlockNumber | BlockTag>> {
+	const getLastBlock = async () => {
+		if ('toBlock' in logFilter) {
+			if (typeof logFilter.toBlock === 'bigint') return logFilter.toBlock
+			if (logFilter.toBlock === 'latest') return await client.getBlockNumber()
+		}
+		return await client.getBlockNumber()
+	}
+	if (logFilter.blockHash !== undefined) return await client.getLogs(logFilter)
+	const logsSoFar: GetLogsReturnType<AbiEvent, undefined, undefined, BlockNumber | BlockTag, BlockNumber | BlockTag>[] = []
+
+	const fetchLogs = async (fromBlock: bigint, toBlock: bigint): Promise<void> => {
+		console.log(`getting logs: ${ fromBlock } -> ${ toBlock }`)
+		if (toBlock < fromBlock) return
+		try {
+			const result = await client.getLogs({ ...logFilter, fromBlock, toBlock, blockHash: undefined })
+			logsSoFar.push(result)
+			console.log(`got logs: ${ fromBlock } -> ${ toBlock }: ${ result.length }. Have ${ logsSoFar.flat().length } logs so far`)
+		} catch (error: unknown) {
+			if (error instanceof JsonRpcResponseError || error instanceof TimeoutError) {
+				const midBlock = fromBlock + ((toBlock - fromBlock) / 2n)
+				await fetchLogs(fromBlock, midBlock)
+				await fetchLogs(midBlock + 1n, toBlock)
+			} else {
+				throw error
+			}
+		}
+	}
+
+	const lastBlock = await getLastBlock()
+	const firstBlock = 'fromBlock' in logFilter && typeof logFilter.fromBlock === 'bigint' ? logFilter.fromBlock : 0n
+	await fetchLogs(firstBlock, lastBlock)
+	console.log(`got logs: ${logsSoFar.flat().length}`)
+	return logsSoFar.flat()
+}
 
 // https://etherscan.io/address/0x5efda50f22d34f262c29268506c5fa42cb56a1ce#writeProxyContract
 export const governanceLockStake = async (client: WriteClient, params: { owner: EthereumAddress, amount: EthereumQuantity, deadline: EthereumQuantity, v: EthereumQuantity, r: EthereumBytes32, s: EthereumBytes32 }) => {
@@ -99,14 +136,15 @@ export const governanceListVotes = async (client: ReadClient, latestBlockNumber:
 	const votedEvent = events.find((x) => x.name === 'Voted')
 	if (votedEvent === undefined) throw new Error('no voting events in the abi')
 	const cache = getCacheGovernanceListVotes()
-	const logs = await client.getLogs({
+	const logs = await binarySearchLogs(client, {
 		address: addressString(CONTRACTS.mainnet.governance['Governance Contract']),
 		event: votedEvent,
 		args: { },
 		fromBlock: cache.latestBlock,
 		toBlock: latestBlockNumber
 	})
-	return [...cache.cache, ...logs.map((log) => {
+	const parsed = parseEventLogs({ abi: [votedEvent], logs })
+	return [...cache.cache, ...parsed.map((log) => {
 		if (log.args.proposalId === undefined || log.args.voter === undefined || log.args.support === undefined || log.args.votes === undefined) throw new Error('args was undefined')
 		return {
 			proposalId: log.args.proposalId,
@@ -139,16 +177,17 @@ export const getVotingReasons = async (client: ReadClient, transactionHashes: Et
 
 export const getProposalEvents = async (client: ReadClient, latestBlockNumber: bigint): Promise<ProposalEvents> => {
 	const events = ABIS.mainnet.governance['Governance Impl'].filter((x) => x.type === 'event')
-	const votedEvent = events.find((x) => x.name === 'ProposalCreated')
-	if (votedEvent === undefined) throw new Error('no voting events in the abi')
+	const proposalEvent = events.find((x) => x.name === 'ProposalCreated')
+	if (proposalEvent === undefined) throw new Error('no voting events in the abi')
 	const cache = getCacheProposalEvents()
-	const logs = await client.getLogs({
+	const logs = await binarySearchLogs(client, {
 		address: addressString(CONTRACTS.mainnet.governance['Governance Contract']),
-		event: votedEvent,
+		event: proposalEvent,
 		fromBlock: cache.latestBlock,
 		toBlock: latestBlockNumber
 	})
-	return [...cache.cache, ...logs.map((log) => {
+	const parsed = parseEventLogs({ abi: [proposalEvent], logs })
+	return [...cache.cache, ...parsed.map((log) => {
 		if (log.args.description === undefined ||
 			log.args.target === undefined ||
 			log.args.startTime === undefined ||
@@ -177,13 +216,13 @@ export const governanceCastVote = async (client: WriteClient, proposalId: Ethere
 	})
 }
 
-export const governanceCreateProposal = async (client: WriteClient, params: { target: EthereumAddress, description: string }) => {
+export const governanceCreateProposal = async (client: WriteClient, target: EthereumAddress, description: string) => {
 	const proposalId = await client.writeContract({
 		chain: mainnet,
 		abi: ABIS.mainnet.governance['Governance Impl'],
 		functionName: 'propose',
 		address: addressString(CONTRACTS.mainnet.governance['Governance Contract']),
-		args: [addressString(params.target), params.description]
+		args: [addressString(target), description]
 	})
 	return EthereumQuantity.parse(proposalId)
 }

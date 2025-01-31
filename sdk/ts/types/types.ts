@@ -1,5 +1,5 @@
 import * as funtypes from 'funtypes'
-import { EthereumData } from '../tests/testsuite/wire-types'
+import { EthereumData } from './wire-types.js'
 export type HexString = `0x${ string }`
 
 const AddressParser: funtypes.ParsedValue<funtypes.String, bigint>['config'] = {

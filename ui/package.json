@@ -13,7 +13,7 @@
 		"@preact/signals": "1.2.2",
 		"multiformats": "13.2.2",
 		"preact": "10.19.3",
-		"viem": "2.22.15",
+		"viem": "2.22.17",
 		"@tronar": "file:../sdk"
 	},
 	"scripts": {

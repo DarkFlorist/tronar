@@ -60,7 +60,7 @@ const createProposalAndVote = async() => {
 	if (tornBalance !== tornToUse) throw new Error(`Wrong torn balance ${ tornBalance } !== ${ tornToUse }`)
 	await approveTorn(client, CONTRACTS.mainnet.governance['Governance Contract'], tornToUse)
 	await governanceLockWithApproval(client, tornToUse)
-	await governanceCreateProposal(client, { target, description })
+	await governanceCreateProposal(client, target, description)
 	const newProposalId = await governanceGetProposalCount(client)
 	const proposalData = await getProposal(client, newProposalId)
 	if (proposalData.target !== target) throw new Error('Target is wrong')
