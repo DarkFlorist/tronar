@@ -1,24 +1,29 @@
 import { useSignal } from '@preact/signals'
-import { useOptionalSignal } from '../utils/OptionalSignal.js'
+import { OptionalSignal, useOptionalSignal } from '../utils/OptionalSignal.js'
 import 'viem/window'
-import { connectToWallet } from '@tronar/components/connect.js'
-import { EthereumQuantity, GovernanceVote, GovernanceVotes, Proposal, ProposalEvent, ProposalEvents, Proposals } from '@tronar/types/types.js'
-import { getProposalEvents, getProposals, getGovernanceListVotes, getTornBalance, governanceCreateProposal, governanceLockWithApproval, governanceUnLockStake, governanceCastVote } from '@tronar/governance.js'
-import { createReadClient } from '@tronar/wallet.js'
+import { connectToWallet } from 'tronar/components/connect'
+import { EthereumAddress, EthereumQuantity, GovernanceVote, GovernanceVotes, Proposal, ProposalEvent, ProposalEvents, Proposals } from 'tronar/types/types'
+import { getProposalEvents, governanceListProposals, governanceListVotes, getOwnTornBalance, governanceCreateProposal, governanceLockWithApproval, governanceUnLockStake, governanceCastVote, governanceGetProposalCount } from 'tronar/governance'
+import { createReadClient, createWriteClient, WriteClient } from 'tronar/wallet'
+import { bytes32String } from 'tronar/utils/bigint'
 
 export type AccountAddress = `0x${ string }`
 
 interface WalletComponentProps {
-	onAccountChange: (address: AccountAddress | undefined) => void
+	onAccountChange: (address: EthereumAddress | undefined) => void
 	onError: (error: string | undefined) => void
+}
+
+interface WalletProps {
+	writeClient: OptionalSignal<WriteClient>
 }
 
 const WalletComponent = ({ onAccountChange }: WalletComponentProps) => {
 	const loadingAccount = useSignal<boolean>(false)
 	const error = useSignal<string | undefined>(undefined)
-	const maybeAccountAddress = useOptionalSignal<AccountAddress>(undefined)
+	const maybeAccountAddress = useOptionalSignal<EthereumAddress>(undefined)
 
-	const onAccountChangeCallBack = (address: AccountAddress | undefined) => {
+	const onAccountChangeCallBack = (address: EthereumAddress | undefined) => {
 		if (address !== maybeAccountAddress.deepValue) onAccountChange(address)
 		loadingAccount.value = false
 	}
@@ -44,12 +49,12 @@ const WalletComponent = ({ onAccountChange }: WalletComponentProps) => {
 	)
 }
 
-const ProposalEvents = () => {
-	const proposalEvents = useSignal<ProposalEvents>(false)
+const ProposalEventsComponent = () => {
+	const proposalEvents = useSignal<ProposalEvents>([])
 
 	const fetchProposalEvents = async () => {
 		const client = createReadClient(window.ethereum)
-		const blockNum = client.getBlockNumber()
+		const blockNum = await client.getBlockNumber()
 		proposalEvents.value = await getProposalEvents(client, blockNum)
 	}
 
@@ -81,13 +86,13 @@ const ProposalEvents = () => {
 	</div>
 }
 
-const Proposals = () => {
-	const proposals = useSignal<Proposals>(false)
+const ProposalsComponent = () => {
+	const proposals = useSignal<Proposals>([])
 
 	const fetchProposalEvents = async () => {
 		const client = createReadClient(window.ethereum)
-		const blockNum = client.getBlockNumber()
-		proposals.value = await getProposals(client, blockNum)
+		const proposalCount = await governanceGetProposalCount(client)
+		proposals.value = await governanceListProposals(client, proposalCount)
 	}
 
 	return <div>
@@ -113,23 +118,23 @@ const Proposals = () => {
 				<td>{ proposal.endTime }</td>
 				<td>{ proposal.forVotes }</td>
 				<td>{ proposal.againstVotes }</td>
-				<td>{ proposal.executed }</td>
-				<td>{ proposal.extended }</td>
+				<td>{ proposal.executed ? 'true' : 'false' }</td>
+				<td>{ proposal.extended ? 'true' : 'false' }</td>
 			</tr>) }
 		</table>
 	</div>
 }
 
 const Votes = () => {
-	const votes = useSignal<GovernanceVotes>(false)
+	const votes = useSignal<GovernanceVotes>([])
 	const fetchProposalEvents = async () => {
 		const client = createReadClient(window.ethereum)
-		const blockNum = client.getBlockNumber()
-		votes.value = await getGovernanceListVotes(client, blockNum)
+		const blockNum = await client.getBlockNumber()
+		votes.value = await governanceListVotes(client, blockNum)
 	}
 	return <div>
 		<button class = 'button is-primary' style = 'justify-self: right;' onClick = { fetchProposalEvents }>
-			{ `getGovernanceListVotes` }
+			{ `governanceListVotes` }
 		</button>
 		<title>Votes</title>
 		<table>
@@ -139,25 +144,29 @@ const Votes = () => {
 				<th>Voter</th>
 				<th>Support</th>
 				<th>Votes</th>
+				<th>Contact</th>
+				<th>Message</th>
 				<th>Transaction Hash</th>
 			</tr>
 			{ votes.value.map((vote: GovernanceVote) => <tr>
 				<td>{ vote.blockNumber }</td>
 				<td>{ vote.proposalId }</td>
 				<td>{ vote.voter }</td>
-				<td>{ vote.support }</td>
+				<td>{ vote.support ? 'true' : 'false' }</td>
+				<td>{ vote.comment ? vote.comment.contact : '-' }</td>
+				<td>{ vote.comment ? vote.comment.message : '-' }</td>
 				<td>{ vote.votes }</td>
-				<td>{ vote.transactionHash }</td>
+				<td>{ bytes32String(vote.transactionHash) }</td>
 			</tr>) }
 		</table>
 	</div>
 }
 
 const Balance = () => {
-	const balance = useSignal<EthereumQuantity>(false)
+	const balance = useSignal<EthereumQuantity | undefined>(undefined)
 	const fetchBalance = async () => {
 		const client = createReadClient(window.ethereum)
-		balance.value = await getTornBalance(client, client.account)
+		balance.value = await getOwnTornBalance(client)
 	}
 	return <div>
 		<button class = 'button is-primary' style = 'justify-self: right;' onClick = { fetchBalance }>
@@ -175,13 +184,15 @@ const Balance = () => {
 	</div>
 }
 
-const CreateProposal = () => {
-	const target = useSignal<EthereumQuantity>('')
+const CreateProposal = ({ writeClient }: WalletProps) => {
+	const target = useSignal<string>('')
 	const description = useSignal<string>('')
 
 	const createProposal = async () => {
-		const client = createReadClient(window.ethereum)
-		await governanceCreateProposal(client, target.value, description.value)
+		if (writeClient.deepValue === undefined) return
+		const targetAddr = EthereumAddress.safeParse(target.value)
+		if (!targetAddr.success) return
+		await governanceCreateProposal(writeClient.deepValue, targetAddr.value, description.value)
 	}
 
 	return <div>
@@ -215,12 +226,14 @@ const CreateProposal = () => {
 	</div>
 }
 
-const LockTornWithApproval = () => {
-	const tornToUse = useSignal<EthereumQuantity>(0n)
+const LockTornWithApproval = ({ writeClient }: WalletProps) => {
+	const tornToUse = useSignal<string>('')
 
 	const LockTorn = async () => {
-		const client = createReadClient(window.ethereum)
-		await governanceLockWithApproval(client, tornToUse)
+		if (writeClient.deepValue === undefined) return
+		const tornBigInt = EthereumQuantity.safeParse(tornToUse.value)
+		if (!tornBigInt.success) return
+		await governanceLockWithApproval(writeClient.deepValue, tornBigInt.value)
 	}
 
 	return <div>
@@ -245,12 +258,14 @@ const LockTornWithApproval = () => {
 	</div>
 }
 
-const UnLockStake = () => {
-	const tornToUse = useSignal<EthereumQuantity>(0n)
+const UnLockStake = ({ writeClient }: WalletProps) => {
+	const tornToUse = useSignal<string>('0')
 
 	const LockTorn = async () => {
-		const client = createReadClient(window.ethereum)
-		await governanceUnLockStake(client, tornToUse)
+		if (writeClient.deepValue === undefined) return
+		const tornBigInt = EthereumQuantity.safeParse(tornToUse.value)
+		if (!tornBigInt.success) return
+		await governanceUnLockStake(writeClient.deepValue, tornBigInt.value)
 	}
 
 	return <div>
@@ -275,51 +290,82 @@ const UnLockStake = () => {
 	</div>
 }
 
+const CastVote = ({ writeClient }: WalletProps) => {
+	const proposalId = useSignal<string>('0')
+	const support = useSignal<boolean>(false)
+	const contact = useSignal<string>('')
+	const message = useSignal<string>('')
 
-const CastVote = () => {
-    const proposalId = useSignal<EthereumQuantity>(0n)
-    const support = useSignal<boolean>(false)
+	const vote = async () => {
+		const parsedProposalId = EthereumQuantity.safeParse(proposalId)
+		if (!parsedProposalId.success) return
+		if (writeClient.deepValue === undefined) return
+		const contactS = contact.value
+		const messageS = message.value
+		await governanceCastVote(writeClient.deepValue, parsedProposalId.value, support.value, contactS.length || messageS.length ? { contact: contactS, message: messageS } : undefined)
+	}
 
-    const vote = async () => {
-        const client = createReadClient(window.ethereum)
-        await governanceCastVote(client, proposalId, support)
-    }
-
-    return <div>
-        <title>Cast vote</title>
-        <div style="margin-bottom: 1rem;">
-            <label class="label">proposalId</label>
-            <input
-                class="input"
-                type="text"
-                placeholder="1."
-                value={proposalId.value}
-                onInput={(e) => proposalId.value = (e.target as HTMLInputElement).value}
-            />
-        </div>
-        <div style="margin-bottom: 1rem;">
-            <label class="label">Support</label>
-            <select
-                class="select"
-                value={support.value ? "yes" : "no"}
-                onInput={(e) => support.value = (e.target as HTMLSelectElement).value === "yes"}
-            >
-                <option value="yes">Yes</option>
-                <option value="no">No</option>
-            </select>
-        </div>
-        <button
-            class="button is-primary"
-            style="justify-self: right;"
-            onClick={vote}
-        >
-            {`Vote`}
-        </button>
-    </div>
+	return <div>
+		<title>Cast vote</title>
+		<div style = 'margin-bottom: 1rem;'>
+			<label class = 'label'>Proposal ID</label>
+			<input
+				class = 'input'
+				type = 'text'
+				placeholder = '1.'
+				value = { proposalId.value }
+				onInput = {(e) => proposalId.value = (e.target as HTMLInputElement).value}
+			/>
+		</div>
+		<div style = 'margin-bottom: 1rem;'>
+			<label class = 'label'>Support</label>
+			<select
+				class = 'select'
+				value = { support.value ? 'yes' : 'no' }
+				onInput = { (e) => support.value = (e.target as HTMLSelectElement).value === 'yes' }
+			>
+				<option value = 'yes'>Yes</option>
+				<option value = 'no'>No</option>
+			</select>
+		</div>
+		<div style = 'margin-bottom: 1rem;'>
+			<label class = 'label'>Contact</label>
+			<input
+				class = 'input'
+				type = 'text'
+				placeholder = ''
+				value = { contact.value }
+				onInput = { (e) => contact.value = (e.target as HTMLInputElement).value }
+			/>
+		</div>
+		<div style = 'margin-bottom: 1rem;'>
+			<label class = 'label'>message</label>
+			<input
+				class = 'input'
+				type = 'text'
+				placeholder = ''
+				value = { message.value }
+				onInput = { (e) => message.value = (e.target as HTMLInputElement).value }
+			/>
+		</div>
+		<button
+			class = 'button is-primary'
+			style = 'justify-self: right;'
+			onClick = {vote}
+		>
+			{`Vote`}
+		</button>
+	</div>
 }
 
 export function App() {
-	const handleAccountChange = (address: AccountAddress | undefined) => {
+	const writeClient = useOptionalSignal<WriteClient>(undefined)
+	const handleAccountChange = (address: EthereumAddress | undefined) => {
+		if (address !== undefined) {
+			writeClient.deepValue = createWriteClient(window.ethereum, address)
+		} else {
+			writeClient.deepValue = undefined
+		}
 		console.log('Account changed:', address)
 	}
 
@@ -329,12 +375,12 @@ export function App() {
 
 	return <main style = 'overflow: auto;'>
 		<WalletComponent onAccountChange = { handleAccountChange } onError = { handleError } />
-		<ProposalEvents/>
-		<Proposals/>
+		<ProposalEventsComponent/>
+		<ProposalsComponent/>
 		<Votes/>
-		<LockTornWithApproval/>
-		<UnLockStake/>
-		<CreateProposal/>
-		<CastVote/>
+		<LockTornWithApproval writeClient = { writeClient }/>
+		<UnLockStake writeClient = { writeClient }/>
+		<CreateProposal writeClient = { writeClient }/>
+		<CastVote writeClient = { writeClient }/>
 	</main>
 }

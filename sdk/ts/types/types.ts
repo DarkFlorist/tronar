@@ -1,5 +1,4 @@
 import * as funtypes from 'funtypes'
-import { EthereumData } from './wire-types.js'
 export type HexString = `0x${ string }`
 
 const AddressParser: funtypes.ParsedValue<funtypes.String, bigint>['config'] = {
@@ -77,6 +76,12 @@ export const ProposalEvent = funtypes.ReadonlyObject({
 export type ProposalEvents = funtypes.Static<typeof ProposalEvents>
 export const ProposalEvents = funtypes.ReadonlyArray(ProposalEvent)
 
+export type VoteComment = funtypes.Static<typeof VoteComment>
+export const VoteComment = funtypes.ReadonlyObject({ contact: funtypes.String, message: funtypes.String })
+
+export type VoteCommentOrUndefined = funtypes.Static<typeof VoteCommentOrUndefined>
+export const VoteCommentOrUndefined = funtypes.Union(funtypes.Undefined, VoteComment)
+
 export type GovernanceVote = funtypes.Static<typeof GovernanceVote>
 export const GovernanceVote = funtypes.ReadonlyObject({
 	proposalId: EthereumQuantity,
@@ -84,7 +89,8 @@ export const GovernanceVote = funtypes.ReadonlyObject({
 	support: funtypes.Boolean,
 	votes: EthereumQuantity,
 	blockNumber: EthereumQuantity,
-	transactionHash: EthereumData,
+	transactionHash: EthereumBytes32,
+	comment: VoteCommentOrUndefined
 })
 
 export type GovernanceVotes = funtypes.Static<typeof GovernanceVotes>

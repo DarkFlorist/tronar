@@ -1,23 +1,55 @@
 import { GovernanceVotesCache, ProposalEventsCache, ProposalsCache } from '../types/types.js'
-import * as fs from 'fs'
 
-export const getCacheProposals = () => {
-	const network = 'mainnet'
-	const file = `data/proposals_${ network }.json`
-	if (fs.existsSync(file)) return ProposalsCache.parse(JSON.parse(fs.readFileSync(file, 'utf8')))
-	return { proposalCount: 0n, cache: [] }
+const network = 'mainnet'
+const isNode = typeof window === 'undefined'
+
+const joinPath = async (...paths: string[]) => {
+	if (typeof window !== 'undefined' || typeof document !== 'undefined') {
+		return paths.join('/').replace(/\/+/g, '/')
+	}
+	const nodePath = await import('node:path')
+	return nodePath.join(...paths)
 }
 
-export const getCacheProposalEvents = () => {
-	const network = 'mainnet'
-	const file = `data/proposalEvents_${ network }.json`
-	if (fs.existsSync(file)) return ProposalEventsCache.parse(JSON.parse(fs.readFileSync(file, 'utf8')))
-	return { latestBlock: 0n, cache: [] }
+const getCurrentFolder = async () => {
+	if (typeof window !== 'undefined' || typeof document !== 'undefined') {
+		return new URL('.', import.meta.url).pathname
+	}
+	const nodePath = await import('node:path')
+	const { fileURLToPath } = await import('node:url')
+
+	const __filename = fileURLToPath(import.meta.url)
+	return nodePath.dirname(__filename)
 }
 
-export const getCacheGovernanceListVotes = () => {
-	const network = 'mainnet'
-	const file = `data/votes_${ network }.json`
-	if (fs.existsSync(file)) return GovernanceVotesCache.parse(JSON.parse(fs.readFileSync(file, 'utf8')))
-	return { latestBlock: 0n, cache: [] }
+const fetchJSON = async (file: string) => {
+	const path = await joinPath(await getCurrentFolder(), '..', 'data', `${ file }.json`)
+	if (isNode) {
+		const { readFileSync, existsSync } = await import('fs')
+		if (existsSync(path)) return JSON.parse(readFileSync(path, 'utf8'))
+	} else {
+		try {
+			const response = await fetch(path)
+			if (!response.ok) throw new Error('Failed to fetch data')
+			return await response.json()
+		} catch {
+			return null
+		}
+	}
+	return null
+}
+
+export const getCacheProposals = async () => {
+	const data = await fetchJSON(`proposals_${ network }`)
+	return data ? ProposalsCache.parse(data) : { proposalCount: 0n, cache: [] }
+}
+
+export const getCacheProposalEvents = async () => {
+	const data = await fetchJSON(`proposalEvents_${ network }`)
+	return data ? ProposalEventsCache.parse(data) : { latestBlock: 0n, cache: [] }
+}
+
+export const getCacheGovernanceListVotes = async () => {
+	const data = await fetchJSON(`votes_${ network }`)
+	return data ? GovernanceVotesCache.parse(data) : { latestBlock: 0n, cache: [] }
 }

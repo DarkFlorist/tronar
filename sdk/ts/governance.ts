@@ -1,11 +1,10 @@
-import { AbiEvent, BlockNumber, BlockTag, decodeAbiParameters, decodeFunctionData, encodeFunctionData, GetLogsParameters, GetLogsReturnType, parseEventLogs, TimeoutError } from 'viem'
+import { AbiEvent, BlockNumber, BlockTag, decodeAbiParameters, decodeFunctionData, encodeAbiParameters, encodeFunctionData, GetLogsParameters, GetLogsReturnType, parseEventLogs, TimeoutError, TransactionNotFoundError } from 'viem'
 import { mainnet } from 'viem/chains'
-import { EthereumAddress, EthereumBytes32, EthereumQuantity, Proposal, ProposalEvents, TornadoVotingReason } from './types/types.js'
+import { EthereumAddress, EthereumBytes32, EthereumQuantity, Proposal, ProposalEvents, TornadoVotingReason, VoteComment, VoteCommentOrUndefined } from './types/types.js'
 import { ABIS } from './abi/abis.js'
 import { addressString, bigintToNumber, createRange, serialize, stringAsHexString } from './utils/utils.js'
 import { CONTRACTS } from './utils/constants.js'
 import { ReadClient, WriteClient } from './wallet.js'
-import { EthereumData } from './types/wire-types.js'
 import { getCacheGovernanceListVotes, getCacheProposalEvents, getCacheProposals } from './utils/readCache.js'
 import { JsonRpcResponseError } from './tests/testsuite/simulator/errors.js'
 
@@ -126,7 +125,7 @@ export const getProposal = async (client: ReadClient, proposalId: EthereumQuanti
 
 export const governanceListProposals = async (client: ReadClient, proposalCount: bigint) => {
 	if (proposalCount === 0n) return []
-	const cache = getCacheProposals()
+	const cache = await getCacheProposals()
 	const proposals = (createRange(Number(cache.proposalCount), Number(proposalCount))).map((x) => BigInt(x))
 	return [...cache.cache, ...await Promise.all(proposals.map((proposal) => getProposal(client, proposal)))]
 }
@@ -135,7 +134,7 @@ export const governanceListVotes = async (client: ReadClient, latestBlockNumber:
 	const events = ABIS.mainnet.governance['Governance Impl'].filter((x) => x.type === 'event')
 	const votedEvent = events.find((x) => x.name === 'Voted')
 	if (votedEvent === undefined) throw new Error('no voting events in the abi')
-	const cache = getCacheGovernanceListVotes()
+	const cache = await getCacheGovernanceListVotes()
 	const logs = await binarySearchLogs(client, {
 		address: addressString(CONTRACTS.mainnet.governance['Governance Contract']),
 		event: votedEvent,
@@ -144,7 +143,7 @@ export const governanceListVotes = async (client: ReadClient, latestBlockNumber:
 		toBlock: latestBlockNumber
 	})
 	const parsed = parseEventLogs({ abi: [votedEvent], logs })
-	return [...cache.cache, ...parsed.map((log) => {
+	const moreParsed = parsed.map((log) => {
 		if (log.args.proposalId === undefined || log.args.voter === undefined || log.args.support === undefined || log.args.votes === undefined) throw new Error('args was undefined')
 		return {
 			proposalId: log.args.proposalId,
@@ -152,9 +151,13 @@ export const governanceListVotes = async (client: ReadClient, latestBlockNumber:
 			support: log.args.support,
 			votes: log.args.votes,
 			blockNumber: log.blockNumber,
-			transactionHash: EthereumData.parse(log.transactionHash)
+			transactionHash: EthereumBytes32.parse(log.transactionHash)
 		}
-	})]
+	})
+	const votingReasons = await getVotingReasons(client, moreParsed.map((x) => x.transactionHash))
+	if (moreParsed.length !== votingReasons.length) throw new Error ('length mismatch')
+	const withReasons = moreParsed.map((moreParsedOne, index) => ({ ...moreParsedOne, comment: votingReasons[index] }))
+	return [...cache.cache, ...withReasons]
 }
 
 export const governanceListVotesForId = async (client: ReadClient, latestBlockNumber: bigint, proposalId: EthereumQuantity) => {
@@ -163,15 +166,24 @@ export const governanceListVotesForId = async (client: ReadClient, latestBlockNu
 
 export const getVotingReasons = async (client: ReadClient, transactionHashes: EthereumBytes32[]) => {
 	return await Promise.all(transactionHashes.map(async (transactionHash) => {
-		const abi = ABIS.mainnet.governance['Governance Impl']
-		const transaction = await client.getTransaction({ hash: stringAsHexString(serialize(EthereumBytes32, transactionHash)) })
-		if (transaction.to !== addressString(CONTRACTS.mainnet.governance['Governance Contract'])) throw new Error('not a transaction to governance contract')
-		const { functionName, args } = decodeFunctionData({ abi, data: transaction.input });
-		if (functionName !== 'castVote' && functionName !== 'castDelegatedVote') throw new Error(`${ functionName } is not castVote or castDelegatedVote`)
-		const functionData = encodeFunctionData({ abi, functionName, args })
-		const jsonString = decodeAbiParameters([{ name: 'jsonString', type: 'string' }], `0x${ transaction.input.slice(functionData.length) }`)[0]
-		const [contact, message] = TornadoVotingReason.parse(JSON.parse(jsonString))
-		return { contact, message }
+		try {
+			const abi = ABIS.mainnet.governance['Governance Impl']
+			console.log(stringAsHexString(serialize(EthereumBytes32, transactionHash)))
+			const transaction = await client.getTransaction({ hash: stringAsHexString(serialize(EthereumBytes32, transactionHash)) })
+			if (transaction.to !== addressString(CONTRACTS.mainnet.governance['Governance Contract'])) throw new Error('not a transaction to governance contract')
+			console.log(transaction)
+			const { functionName, args } = decodeFunctionData({ abi, data: transaction.input });
+			if (functionName !== 'castVote' && functionName !== 'castDelegatedVote') throw new Error(`${ functionName } is not castVote or castDelegatedVote`)
+			const functionData = encodeFunctionData({ abi, functionName, args })
+			const messageData = transaction.input.slice(functionData.length)
+			if (messageData.length === 0) return undefined
+			const jsonString = decodeAbiParameters([{ name: 'jsonString', type: 'string' }], `0x${ messageData }`)[0]
+			const [contact, message] = TornadoVotingReason.parse(JSON.parse(jsonString))
+			return { contact, message }
+		} catch(error: unknown) {
+			if (error instanceof TransactionNotFoundError) return undefined
+			throw error
+		}
 	}))
 }
 
@@ -179,7 +191,7 @@ export const getProposalEvents = async (client: ReadClient, latestBlockNumber: b
 	const events = ABIS.mainnet.governance['Governance Impl'].filter((x) => x.type === 'event')
 	const proposalEvent = events.find((x) => x.name === 'ProposalCreated')
 	if (proposalEvent === undefined) throw new Error('no voting events in the abi')
-	const cache = getCacheProposalEvents()
+	const cache = await getCacheProposalEvents()
 	const logs = await binarySearchLogs(client, {
 		address: addressString(CONTRACTS.mainnet.governance['Governance Contract']),
 		event: proposalEvent,
@@ -206,14 +218,19 @@ export const getProposalEvents = async (client: ReadClient, latestBlockNumber: b
 	})]
 }
 
-export const governanceCastVote = async (client: WriteClient, proposalId: EthereumQuantity, support: boolean) => {
-	return await client.writeContract({
-		chain: mainnet,
+export const governanceCastVote = async (client: WriteClient, proposalId: EthereumQuantity, support: boolean, comment: VoteCommentOrUndefined) => {
+	const commentString = comment === undefined ? undefined : JSON.stringify(serialize(VoteComment, comment))
+	const input = encodeFunctionData({
 		abi: ABIS.mainnet.governance['Governance Impl'],
 		functionName: 'castVote',
-		address: addressString(CONTRACTS.mainnet.governance['Governance Contract']),
-		args: [proposalId, support]
+		args: [proposalId, support],
 	})
+	const request = await client.prepareTransactionRequest({
+		chain: mainnet,
+		data: commentString === undefined ? input : `${ input }${ encodeAbiParameters([{ name: 'jsonString', type: 'string' }], [commentString]) }`,
+		address: addressString(CONTRACTS.mainnet.governance['Governance Contract']),
+	})
+	return await client.sendTransaction(request)
 }
 
 export const governanceCreateProposal = async (client: WriteClient, target: EthereumAddress, description: string) => {
@@ -227,11 +244,16 @@ export const governanceCreateProposal = async (client: WriteClient, target: Ethe
 	return EthereumQuantity.parse(proposalId)
 }
 
-export const getTornBalance = async(client: WriteClient, account: EthereumAddress) => {
+export const getTornBalance = async(client: ReadClient, account: EthereumAddress) => {
 	return await client.readContract({
 		abi: ABIS.mainnet.governance['TORN Token'],
 		address: addressString(CONTRACTS.mainnet.governance['TORN Token']),
 		functionName: 'balanceOf',
 		args: [addressString(account)]
 	})
+}
+
+export const getOwnTornBalance = async(client: ReadClient) => {
+	const addr = EthereumAddress.parse(client.account)
+	return await getTornBalance(client, addr)
 }

@@ -77,7 +77,7 @@ const createProposalAndVote = async() => {
 	if (ourProposalEvent.target !== target) throw new Error('target mismatch')
 	const VOTING_DELAY = 75n
 	await mockedWindowEthereum.advanceTime(VOTING_DELAY)
-	await governanceCastVote(client, newProposalId, true)
+	await governanceCastVote(client, newProposalId, true, undefined)
 	const votes = await governanceListVotesForId(client, latestBlock, newProposalId)
 	const ourVote = votes[0]
 	if (votes.length !== 1 || ourVote === undefined) throw new Error('Cant see our vote')

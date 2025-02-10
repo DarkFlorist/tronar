@@ -14,7 +14,7 @@
 		"multiformats": "13.2.2",
 		"preact": "10.19.3",
 		"viem": "2.22.17",
-		"@tronar": "file:../sdk"
+		"tronar": "file:../sdk/"
 	},
 	"scripts": {
 		"setup": "npm ci --ignore-scripts && npm run vendor && npm run build",

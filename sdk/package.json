@@ -1,8 +1,10 @@
 {
-	"description": "Tornado-sdk",
+	"name": "tronar",
+	"version": "1.0.0",
+	"description": "Unofficial Tornado SDK",
 	"repository": {},
 	"license": "Unlicense",
-	"main": "governance.js",
+	"main": "index.js",
 	"type": "module",
 	"devDependencies": {
 		"@types/node": "22.5.4",
@@ -18,15 +20,22 @@
 		"cache": "tsc && node ./js/createCache.js"
 	},
 	"exports": {
+		".": "./js/index.js",
 		"./components/connect": "./js/components/connect.js",
 		"./governance": "./js/governance.js",
-		"./wallet": "./js/wallet.js"
+		"./wallet": "./js/wallet.js",
+		"./types/types": "./js/types/types.js",
+		"./types/wire-types": "./js/types/wire-types.js",
+		"./utils/bigint": "./js/utils/bigint.js"
 	},
 	"typesVersions": {
 		"*": {
 			"components/connect": ["./js/components/connect"],
 			"governance": ["./js/governance"],
-			"wallet": ["./js/wallet"]
+			"wallet": ["./js/wallet"],
+			"types/types": ["./js/types/types"],
+			"types/wire-types": ["./js/types/wire-types"],
+			"utils/bigint": ["./js/utils/bigint"]
 		}
 	}
 }

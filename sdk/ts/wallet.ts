@@ -2,8 +2,9 @@ import { createPublicClient, createWalletClient, custom, EIP1193Provider, http, 
 import { mainnet } from 'viem/chains'
 import { addressString } from './utils/utils.js'
 
+const DEFAULT_HTTP = 'https://ethereum.dark.florist'
 export const createReadClient = (ethereum: EIP1193Provider | undefined) => {
-	if (ethereum === undefined) return createPublicClient({ chain: mainnet, transport: http('https://ethereum.dark.florist', { batch: { wait: 100 } }) })
+	if (ethereum === undefined) return createPublicClient({ chain: mainnet, transport: http(DEFAULT_HTTP, { batch: { wait: 100 } }) })
 	return createWalletClient({ chain: mainnet, transport: custom(ethereum) }).extend(publicActions)
 }
 
