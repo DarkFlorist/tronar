@@ -59,6 +59,9 @@ export const CONTRACTS = {
 		}
 	}
 } as const
+
+export const TORNADO_GOVERNANCE_VOTING_DELAY = 75n
+
 /*
 * Arbitrum
 

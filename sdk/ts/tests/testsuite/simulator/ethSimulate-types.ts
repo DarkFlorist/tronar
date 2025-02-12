@@ -101,7 +101,6 @@ const EthSimulateCallResultFailure = funtypes.ReadonlyObject({
 	  error: funtypes.ReadonlyObject({
 		  code: funtypes.Number,
 		  message: funtypes.String,
-		  data: funtypes.String
 	  })
 })
 

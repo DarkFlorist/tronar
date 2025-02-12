@@ -8,12 +8,17 @@ class ErrorWithData extends Error {
 	}
 }
 
-export class JsonRpcResponseError extends ErrorWithData {
+export class ErrorWithDataAndCode extends ErrorWithData {
+	public constructor(public code: number, message: string, public data: unknown) {
+		super(message, data)
+		Object.setPrototypeOf(this, ErrorWithDataAndCode.prototype)
+	}
+}
+
+export class JsonRpcResponseError extends ErrorWithDataAndCode {
 	public readonly id: string | number
-	public readonly code: number
 	public constructor(jsonRpcResponse: JsonRpcErrorResponse) {
-		super(jsonRpcResponse.error.message, jsonRpcResponse.error.data)
-		this.code = jsonRpcResponse.error.code
+		super(jsonRpcResponse.error.code, jsonRpcResponse.error.message, jsonRpcResponse.error.data)
 		this.id = jsonRpcResponse.id
 		Object.setPrototypeOf(this, JsonRpcResponseError.prototype)
 	}

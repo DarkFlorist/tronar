@@ -1,13 +1,13 @@
 import { EIP1193Provider } from 'viem'
 import { CANNOT_SIMULATE_OFF_LEGACY_BLOCK, DEFAULT_CALL_ADDRESS } from './constants.js'
 import { EthereumClientService } from './EthereumClientService.js'
-import { EthCallParams, EthereumJsonRpcRequest, EthGetLogsRequest, EthGetLogsResponse, SendTransactionParams } from './JsonRpc-types.js'
-import { appendTransaction, getInputFieldFromDataOrInput, getSimulatedBlockNumber, getSimulatedLogs, getSimulatedTransactionByHash, getSimulatedTransactionCountOverStack, mockSignTransaction, simulatedCall, simulateEstimateGas } from './SimulationModeEthereumClientService.js'
+import { EthCallParams, EthereumJsonRpcRequest, EthGetLogsResponse, GetBlockReturn, SendTransactionParams } from './JsonRpc-types.js'
+import { appendTransaction, createSimulationState, getInputFieldFromDataOrInput, getPreSimulated, getSimulatedBlock, getSimulatedBlockNumber, getSimulatedLogs, getSimulatedTransactionByHash, getSimulatedTransactionCountOverStack, mockSignTransaction, simulatedCall, simulateEstimateGas } from './SimulationModeEthereumClientService.js'
 import { SimulationState } from './visualizer-types.js'
 import { StateOverrides } from './ethSimulate-types.js'
 import { EthereumJSONRpcRequestHandler } from './EthereumJSONRpcRequestHandler.js'
 import { EthereumBytes32, EthereumData, EthereumQuantity, EthereumSignedTransactionWithBlockData } from '../../../types/wire-types.js'
-import { JsonRpcResponseError, printError } from './errors.js'
+import { ErrorWithDataAndCode, JsonRpcResponseError, printError } from './errors.js'
 import * as funtypes from 'funtypes'
 
 async function singleCallWithFromOverride(ethereumClientService: EthereumClientService, simulationState: SimulationState | undefined, request: EthCallParams, from: bigint) {
@@ -37,42 +37,6 @@ export async function call(ethereumClientService: EthereumClientService, simulat
 	const from = callParams.from !== undefined ? callParams.from : DEFAULT_CALL_ADDRESS
 	const callResult = await singleCallWithFromOverride(ethereumClientService, simulationState, request, from)
 	return { type: 'result' as const, method: request.method, ...callResult }
-}
-
-export async function binarySearchLogs(ethereumClientService: EthereumClientService, requestAbortController: AbortController | undefined, simulationState: SimulationState | undefined, logFilter: EthGetLogsRequest): Promise<EthGetLogsResponse> {
-	const getLastBlock = async () => {
-		if ('toBlock' in logFilter) {
-			if (typeof logFilter.toBlock === 'bigint') return logFilter.toBlock
-			if (logFilter.toBlock === 'latest') return await getSimulatedBlockNumber(ethereumClientService, requestAbortController, simulationState)
-		}
-		return await getSimulatedBlockNumber(ethereumClientService, requestAbortController, simulationState)
-	}
-
-	const logsSoFar: EthGetLogsResponse[] = []
-
-	const fetchLogs = async (fromBlock: bigint, toBlock: bigint): Promise<void> => {
-		console.log(`getting logs: ${ fromBlock } -> ${ toBlock }`)
-		if (toBlock < fromBlock) return
-		try {
-			const result = await getSimulatedLogs(ethereumClientService, undefined, simulationState, { ...logFilter, fromBlock, toBlock })
-			logsSoFar.push(result)
-			console.log(`got logs: ${ fromBlock } -> ${ toBlock }: ${ result.length }. Have ${logsSoFar.flat().length} logs so far`)
-		} catch (error: unknown) {
-			if (error instanceof JsonRpcResponseError) {
-				const midBlock = fromBlock + ((toBlock - fromBlock) / 2n)
-				await fetchLogs(fromBlock, midBlock)
-				await fetchLogs(midBlock + 1n, toBlock)
-			} else {
-				throw error
-			}
-		}
-	}
-
-	const lastBlock = await getLastBlock()
-	const firstBlock = 'fromBlock' in logFilter && typeof logFilter.fromBlock === 'bigint' ? logFilter.fromBlock : 0n
-	await fetchLogs(firstBlock, lastBlock)
-	console.log(`got logs: ${logsSoFar.flat().length}`)
-	return logsSoFar.flat()
 }
 
 export const formEthSendTransaction = async (ethereumClientService: EthereumClientService, requestAbortController: AbortController | undefined, simulationState: SimulationState | undefined, blockDelta: number, activeAddress: bigint | undefined, sendTransactionParams: SendTransactionParams) => {
@@ -141,7 +105,7 @@ export const getMockedEthSimulateWindowEthereum = (): MockWindowEthereum => {
 					return EthereumData.serialize(result.result)
 				}
 				case 'eth_getLogs': {
-					const result = await binarySearchLogs(ethereumClientService, undefined, simulationState, args.params[0])
+					const result = await getSimulatedLogs(ethereumClientService, undefined, simulationState, args.params[0])
 					return EthGetLogsResponse.serialize(result)
 				}
 				case 'eth_getTransactionByHash': {
@@ -161,7 +125,29 @@ export const getMockedEthSimulateWindowEthereum = (): MockWindowEthereum => {
 					simulationState = await appendTransaction(ethereumClientService, undefined, simulationState, [transaction.transaction], blockDelta)
 					return EthereumBytes32.serialize(signed.hash)
 				}
+				case 'eth_blockNumber': {
+					const result = await getSimulatedBlockNumber(ethereumClientService, undefined, simulationState)
+					return EthereumQuantity.serialize(result)
+				}
+				case 'eth_getBlockByNumber': {
+					const result = await getSimulatedBlock(ethereumClientService, undefined, simulationState, args.params[0], args.params[1])
+					return GetBlockReturn.serialize(result)
+				}
+				case 'eth_gasPrice': {
+					const result = await ethereumClientService.getGasPrice(undefined)
+					return EthereumQuantity.serialize(result)
+				}
+				case 'eth_estimateGas': {
+					const estimatedGas = await simulateEstimateGas(ethereumClientService, undefined, simulationState, args.params[0], 0)
+					if ('error' in estimatedGas) throw new ErrorWithDataAndCode(estimatedGas.error.code, estimatedGas.error.data, estimatedGas.error.message)
+					return EthereumQuantity.serialize(estimatedGas.gas)
+				}
+				case 'eth_getTransactionCount': {
+					const result = await getSimulatedTransactionCountOverStack(ethereumClientService, undefined, simulationState, args.params[0], args.params[1])
+					return EthereumQuantity.serialize(result)
+				}
 				default: {
+					console.log('unknown RPC call:')
 					console.log(args)
 					throw new ErrorEvent(`unknown method: ${ args.method }`)
 				}
@@ -186,6 +172,17 @@ export const getMockedEthSimulateWindowEthereum = (): MockWindowEthereum => {
 			} else {
 				simulationState = { ...simulationState, blocks: [...simulationState.blocks, newBlock] }
 			}
+			const input = {
+				blocks: [
+					...simulationState.blocks.map((block) => ({
+						stateOverrides: block.stateOverrides,
+						transactions: getPreSimulated(block.simulatedTransactions),
+						signedMessages: block.signedMessages,
+						timeIncreaseDelta: block.timeIncreaseDelta,
+					}))
+				]
+			}
+			simulationState = await createSimulationState(ethereumClientService, undefined, input)
 		},
 		advanceTime: async (amountInSeconds: EthereumQuantity) => {
 			const newBlock = { simulatedTransactions: [], signedMessages: [], stateOverrides: {}, timeIncreaseDelta: amountInSeconds }
@@ -200,6 +197,17 @@ export const getMockedEthSimulateWindowEthereum = (): MockWindowEthereum => {
 			} else {
 				simulationState = { ...simulationState, blocks: [...simulationState.blocks, newBlock] }
 			}
+			const input = {
+				blocks: [
+					...simulationState.blocks.map((block) => ({
+						stateOverrides: block.stateOverrides,
+						transactions: getPreSimulated(block.simulatedTransactions),
+						signedMessages: block.signedMessages,
+						timeIncreaseDelta: block.timeIncreaseDelta,
+					}))
+				]
+			}
+			simulationState = await createSimulationState(ethereumClientService, undefined, input)
 		}
 	}
 }

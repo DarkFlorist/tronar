@@ -57,6 +57,7 @@ export const Proposal = funtypes.ReadonlyObject({
 	againstVotes: EthereumQuantity,
 	executed: funtypes.Boolean,
 	extended: funtypes.Boolean,
+	proposalId: EthereumQuantity,
 })
 
 export type Proposals = funtypes.Static<typeof Proposals>

@@ -40,16 +40,43 @@ const fetchJSON = async (file: string) => {
 }
 
 export const getCacheProposals = async () => {
+	if (!isNode) { // TODO: add node support
+		const localData = localStorage.getItem(`proposals_${ network }`);
+		if (localData) return ProposalsCache.parse(localData)
+	}
 	const data = await fetchJSON(`proposals_${ network }`)
 	return data ? ProposalsCache.parse(data) : { proposalCount: 0n, cache: [] }
 }
 
 export const getCacheProposalEvents = async () => {
+	if (!isNode) { // TODO: add node support
+		const localData = localStorage.getItem(`proposalEvents_${ network }`);
+		if (localData) return ProposalEventsCache.parse(localData)
+	}
 	const data = await fetchJSON(`proposalEvents_${ network }`)
 	return data ? ProposalEventsCache.parse(data) : { latestBlock: 0n, cache: [] }
 }
 
 export const getCacheGovernanceListVotes = async () => {
+	if (!isNode) { // TODO: add node support
+		const localData = localStorage.getItem(`votes_${ network }`);
+		if (localData) return GovernanceVotesCache.parse(localData)
+	}
 	const data = await fetchJSON(`votes_${ network }`)
 	return data ? GovernanceVotesCache.parse(data) : { latestBlock: 0n, cache: [] }
+}
+
+export const storeLocalCacheProposals = async (cache: ProposalsCache) => {
+	if (isNode) return // TODO: add node support
+	localStorage.setItem(`proposals_${ network }`, JSON.stringify(ProposalsCache.serialize(cache)))
+}
+
+export const storeLocalCacheProposalEvents = async (cache: ProposalEventsCache) => {
+	if (isNode) return // TODO: add node support
+	localStorage.setItem(`proposalEvents_${ network }`, JSON.stringify(ProposalEventsCache.serialize(cache)))
+}
+
+export const storeLocalCacheGovernanceListVotes = async (cache: GovernanceVotesCache) => {
+	if (isNode) return // TODO: add node support
+	localStorage.setItem(`votes_${ network }`, JSON.stringify(GovernanceVotesCache.serialize(cache)))
 }

@@ -45,6 +45,8 @@ export function bytesToUnsigned(bytes: Uint8Array): bigint {
 export const min = (left: bigint, right: bigint) => left < right ? left : right
 export const max = (left: bigint, right: bigint) => left > right ? left : right
 export const abs = (x: bigint) => (x < 0n) ? -1n * x : x
+export const bigIntMax = (args: bigint[]) => args.reduce((m, e) => e > m ? e : m)
+export const bigIntMin = (args: bigint[]) => args.reduce((m, e) => e < m ? e : m)
 
 export function isHexEncodedNumber(input: string): boolean {
 	const hexNumberRegex = /^(0x)?[0-9a-fA-F]+$/
