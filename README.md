@@ -8,6 +8,3 @@ Tronar is an SDK for interacting with Tornado Cash.
 
 ## Usage
 Refer to the `UI` folder for an example of how to integrate and use the SDK in your project.
-
-## Notes
-Currently, Tronar is limited to governance functionality. Future updates may expand its capabilities.
