@@ -1,6 +1,6 @@
 import { AbiEvent, BlockNumber, BlockTag, decodeAbiParameters, decodeFunctionData, encodeAbiParameters, encodeFunctionData, GetLogsParameters, GetLogsReturnType, parseEventLogs, TimeoutError, TransactionNotFoundError } from 'viem'
 import { mainnet } from 'viem/chains'
-import { EthereumAddress, EthereumBytes32, EthereumQuantity, Proposal, ProposalEvents, TornadoVotingReason, VoteComment, VoteCommentOrUndefined } from '../types/types.js'
+import { EthereumAddress, EthereumBytes32, EthereumQuantity, Proposal, ProposalEvents, TornadoVotingReason, VoteCommentOrUndefined } from '../types/types.js'
 import { ABIS } from '../abi/abis.js'
 import { addressString, bigintToNumber, createRange, serialize, stringAsHexString } from '../utils/utils.js'
 import { CONTRACTS, TORNADO_GOVERNANCE_VOTING_DELAY } from '../utils/constants.js'
@@ -191,8 +191,12 @@ export const getVotingReasons = async (client: ReadClient, transactionHashes: Et
 			const messageData = transaction.input.slice(functionData.length)
 			if (messageData.length === 0) return undefined
 			const jsonString = decodeAbiParameters([{ name: 'jsonString', type: 'string' }], `0x${ messageData }`)[0]
-			const [contact, message] = TornadoVotingReason.parse(JSON.parse(jsonString))
-			return { contact, message }
+			try {
+				const [contact, message] = TornadoVotingReason.parse(JSON.parse(jsonString))
+				return { contact, message }
+			} catch(error: unknown) {
+				return undefined
+			}
 		} catch(error: unknown) {
 			if (error instanceof TransactionNotFoundError) return undefined
 			throw error
@@ -236,7 +240,7 @@ export const getProposalEvents = async (client: ReadClient, latestBlockNumber: b
 }
 
 export const governanceCastVote = async (client: WriteClient, proposalId: EthereumQuantity, support: boolean, comment: VoteCommentOrUndefined) => {
-	const commentString = comment === undefined ? undefined : JSON.stringify(serialize(VoteComment, comment))
+	const commentString = comment === undefined ? undefined : JSON.stringify(serialize(TornadoVotingReason, [comment.contact, comment.message] as const))
 	const input = encodeFunctionData({
 		abi: ABIS.mainnet.governance['Governance Impl'],
 		functionName: 'castVote',
@@ -244,7 +248,7 @@ export const governanceCastVote = async (client: WriteClient, proposalId: Ethere
 	})
 	const request = await client.prepareTransactionRequest({
 		chain: mainnet,
-		data: commentString === undefined ? input : `${ input }${ encodeAbiParameters([{ name: 'jsonString', type: 'string' }], [commentString]) }`,
+		data: commentString === undefined ? input : `${ input }${ encodeAbiParameters([{ name: 'jsonString', type: 'string' }], [commentString]).slice(2) }`,
 		to: addressString(CONTRACTS.mainnet.governance['Governance Contract']),
 	})
 	return await client.sendTransaction(request)

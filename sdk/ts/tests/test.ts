@@ -75,7 +75,8 @@ const createProposalAndVote = async() => {
 	if (ourProposalEvent.proposer !== vitalik) throw new Error('proposer mismatch')
 	if (ourProposalEvent.target !== target) throw new Error('target mismatch')
 	await mockedWindowEthereum.advanceTime(TORNADO_GOVERNANCE_VOTING_DELAY)
-	await governanceCastVote(client, newProposalId, true, undefined)
+	const votingReason = { contact: 'Vitalik', message: 'My vote' }
+	await governanceCastVote(client, newProposalId, true, votingReason)
 	const votes = await governanceListVotesForId(client, await client.getBlockNumber(), newProposalId)
 	const ourVote = votes[0]
 	if (votes.length !== 1 || ourVote === undefined) throw new Error('Cant see our vote')
@@ -83,6 +84,8 @@ const createProposalAndVote = async() => {
 	if (ourVote.support !== true) throw new Error('Wrong support')
 	if (ourVote.voter !== vitalik) throw new Error('Wrong voterAddress')
 	if (ourVote.votes !== tornToUse) throw new Error('Wrong votes count')
+	if (!(ourVote.comment && ourVote.comment.contact === votingReason.contact && ourVote.comment.message === votingReason.message)) throw new Error('Wrong voting reason')
+
 	await mockedWindowEthereum.advanceTime(100000000000n)
 	await governanceUnLockStake(client, tornToUse)
 }

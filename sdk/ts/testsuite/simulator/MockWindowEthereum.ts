@@ -138,7 +138,7 @@ export const getMockedEthSimulateWindowEthereum = (): MockWindowEthereum => {
 					return EthereumQuantity.serialize(result)
 				}
 				case 'eth_estimateGas': {
-					const estimatedGas = await simulateEstimateGas(ethereumClientService, undefined, simulationState, args.params[0], 0)
+					const estimatedGas = await simulateEstimateGas(ethereumClientService, undefined, simulationState, args.params[0], simulationState?.blocks.length || 0)
 					if ('error' in estimatedGas) throw new ErrorWithDataAndCode(estimatedGas.error.code, estimatedGas.error.data, estimatedGas.error.message)
 					return EthereumQuantity.serialize(estimatedGas.gas)
 				}

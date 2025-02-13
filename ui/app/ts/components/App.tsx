@@ -37,7 +37,7 @@ const ConnectWalletButton = ({ onAccountChange }: ConnectWalletButtonProps) => {
 	if (loadingAccount.value) return <></>
 
 	return <button class = 'button is-primary' style = 'justify-self: right;' onClick = { connect }>
-		{ `Connect wallet` }
+		Connect wallet
 	</button>
 }
 
@@ -52,7 +52,7 @@ const ProposalEventsComponent = () => {
 
 	return <div>
 		<button class = 'button is-primary' style = 'justify-self: right;' onClick = { fetchProposalEvents }>
-			{ `getProposalEvents` }
+			Get Proposal Events
 		</button>
 		<title>ProposalEvents</title>
 		<table>
@@ -89,7 +89,7 @@ const ProposalsComponent = () => {
 
 	return <div>
 		<button class = 'button is-primary' style = 'justify-self: right;' onClick = { fetchProposalEvents }>
-			{ `getProposals` }
+			Get Proposals
 		</button>
 		<title>Proposals</title>
 		<table>
@@ -126,7 +126,7 @@ const Votes = () => {
 	}
 	return <div>
 		<button class = 'button is-primary' style = 'justify-self: right;' onClick = { fetchProposalEvents }>
-			{ `governanceListVotes` }
+			Fetch Votes
 		</button>
 		<title>Votes</title>
 		<table>
@@ -162,7 +162,7 @@ const Balance = () => {
 	}
 	return <div>
 		<button class = 'button is-primary' style = 'justify-self: right;' onClick = { fetchBalance }>
-			{ `getGovernanceListVotes` }
+			Get Balance
 		</button>
 		<title>Torn Balance</title>
 		<table>
@@ -188,7 +188,7 @@ const CreateProposal = ({ writeClient }: WalletProps) => {
 	}
 
 	return <div>
-		<title>Create proposal</title>
+		<title>Create Proposal</title>
 		<div style = 'margin-bottom: 1rem;'>
 			<label class = 'label' >Target Address</label>
 			<input
@@ -213,7 +213,7 @@ const CreateProposal = ({ writeClient }: WalletProps) => {
 			style = 'justify-self: right;'
 			onClick = { createProposal }
 		>
-			{ `Create Proposal` }
+			Create Proposal
 		</button>
 	</div>
 }
@@ -245,7 +245,7 @@ const LockTornWithApproval = ({ writeClient }: WalletProps) => {
 			style = 'justify-self: right;'
 			onClick = { LockTorn }
 		>
-			{ `Lock Torn` }
+			Lock Torn
 		</button>
 	</div>
 }
@@ -277,7 +277,7 @@ const UnLockStake = ({ writeClient }: WalletProps) => {
 			style = 'justify-self: right;'
 			onClick = { LockTorn }
 		>
-			{ `UnLock Torn` }
+			UnLock Torn
 		</button>
 	</div>
 }
@@ -306,7 +306,7 @@ const CastVote = ({ writeClient }: WalletProps) => {
 				type = 'text'
 				placeholder = '1.'
 				value = { proposalId.value }
-				onInput = {(e) => proposalId.value = (e.target as HTMLInputElement).value}
+				onInput = { (e) => proposalId.value = (e.target as HTMLInputElement).value }
 			/>
 		</div>
 		<div style = 'margin-bottom: 1rem;'>
@@ -331,7 +331,7 @@ const CastVote = ({ writeClient }: WalletProps) => {
 			/>
 		</div>
 		<div style = 'margin-bottom: 1rem;'>
-			<label class = 'label'>message</label>
+			<label class = 'label'>Message</label>
 			<input
 				class = 'input'
 				type = 'text'
@@ -343,9 +343,9 @@ const CastVote = ({ writeClient }: WalletProps) => {
 		<button
 			class = 'button is-primary'
 			style = 'justify-self: right;'
-			onClick = {vote}
+			onClick = { vote }
 		>
-			{`Vote`}
+			Vote
 		</button>
 	</div>
 }
