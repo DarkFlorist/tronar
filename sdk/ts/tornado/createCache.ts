@@ -1,7 +1,7 @@
 import { createPublicClient, http } from 'viem'
 import { mainnet } from 'viem/chains'
-import { getProposalEvents, governanceGetProposalCount, governanceListProposals, governanceListVotes } from './governance.js'
-import { GovernanceVotesCache, ProposalEventsCache, ProposalsCache } from '../types/types.js'
+import { getExecutedProposals, getProposalEvents, governanceGetProposalCount, governanceListProposals, governanceListVotes } from './governance.js'
+import { ExecutedProposalsCache, GovernanceVotesCache, ProposalEventsCache, ProposalsCache } from '../types/types.js'
 
 export const createCaches = async () => {
 	const { writeFileSync } = await import('fs')
@@ -22,4 +22,8 @@ export const createCaches = async () => {
 	console.log('Getting list votes')
 	const listVotes = await governanceListVotes(client, latestBlock)
 	writeFileSync(`js/data/votes_${ network }.json`, JSON.stringify(GovernanceVotesCache.serialize({ latestBlock, cache: listVotes })), 'utf8')
+
+	console.log('Getting executed proposals')
+	const executedProposals = await getExecutedProposals(client, latestBlock)
+	writeFileSync(`js/data/executedProposals_${ network }.json`, JSON.stringify(ExecutedProposalsCache.serialize({ latestBlock, cache: executedProposals })), 'utf8')
 }

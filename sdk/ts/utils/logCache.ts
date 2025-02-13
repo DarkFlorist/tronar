@@ -1,4 +1,4 @@
-import { GovernanceVotesCache, ProposalEventsCache, ProposalsCache } from '../types/types.js'
+import { ExecutedProposalsCache, GovernanceVotesCache, ProposalEventsCache, ProposalsCache } from '../types/types.js'
 
 const network = 'mainnet'
 const isNode = typeof window === 'undefined'
@@ -66,6 +66,15 @@ export const getCacheGovernanceListVotes = async () => {
 	return data ? GovernanceVotesCache.parse(data) : { latestBlock: 0n, cache: [] }
 }
 
+export const getCacheExecutedProposals = async () => {
+	if (!isNode) { // TODO: add node support
+		const localData = localStorage.getItem(`executedProposals_${ network }`);
+		if (localData) return ExecutedProposalsCache.parse(localData)
+	}
+	const data = await fetchJSON(`executedProposals_${ network }`)
+	return data ? ExecutedProposalsCache.parse(data) : { latestBlock: 0n, cache: [] }
+}
+
 export const storeLocalCacheProposals = async (cache: ProposalsCache) => {
 	if (isNode) return // TODO: add node support
 	localStorage.setItem(`proposals_${ network }`, JSON.stringify(ProposalsCache.serialize(cache)))
@@ -79,4 +88,9 @@ export const storeLocalCacheProposalEvents = async (cache: ProposalEventsCache) 
 export const storeLocalCacheGovernanceListVotes = async (cache: GovernanceVotesCache) => {
 	if (isNode) return // TODO: add node support
 	localStorage.setItem(`votes_${ network }`, JSON.stringify(GovernanceVotesCache.serialize(cache)))
+}
+
+export const storeLocalExecutedProposals = async (cache: ExecutedProposalsCache) => {
+	if (isNode) return // TODO: add node support
+	localStorage.setItem(`executedProposals_${ network }`, JSON.stringify(ExecutedProposalsCache.serialize(cache)))
 }

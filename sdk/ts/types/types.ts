@@ -97,6 +97,15 @@ export const GovernanceVote = funtypes.ReadonlyObject({
 export type GovernanceVotes = funtypes.Static<typeof GovernanceVotes>
 export const GovernanceVotes = funtypes.ReadonlyArray(GovernanceVote)
 
+export type ExecutedProposal = funtypes.Static<typeof ExecutedProposal>
+export const ExecutedProposal = funtypes.ReadonlyObject({
+	proposalId: EthereumQuantity,
+	blockNumber: EthereumQuantity,
+})
+
+export type ExecutedProposals = funtypes.Static<typeof ExecutedProposals>
+export const ExecutedProposals = funtypes.ReadonlyArray(ExecutedProposal)
+
 export type ProposalsCache = funtypes.Static<typeof ProposalsCache>
 export const ProposalsCache = funtypes.ReadonlyObject({
 	proposalCount: EthereumQuantity,
@@ -113,4 +122,10 @@ export type GovernanceVotesCache = funtypes.Static<typeof GovernanceVotesCache>
 export const GovernanceVotesCache = funtypes.ReadonlyObject({
 	latestBlock: EthereumQuantity,
 	cache: GovernanceVotes,
+})
+
+export type ExecutedProposalsCache = funtypes.Static<typeof ExecutedProposalsCache>
+export const ExecutedProposalsCache = funtypes.ReadonlyObject({
+	latestBlock: EthereumQuantity,
+	cache: ExecutedProposals,
 })

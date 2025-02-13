@@ -1,11 +1,11 @@
 import { AbiEvent, BlockNumber, BlockTag, decodeAbiParameters, decodeFunctionData, encodeAbiParameters, encodeFunctionData, GetLogsParameters, GetLogsReturnType, parseEventLogs, TimeoutError, TransactionNotFoundError } from 'viem'
 import { mainnet } from 'viem/chains'
-import { EthereumAddress, EthereumBytes32, EthereumQuantity, Proposal, ProposalEvents, TornadoVotingReason, VoteCommentOrUndefined } from '../types/types.js'
+import { EthereumAddress, EthereumBytes32, EthereumQuantity, ExecutedProposals, Proposal, ProposalEvents, TornadoVotingReason, VoteCommentOrUndefined } from '../types/types.js'
 import { ABIS } from '../abi/abis.js'
 import { addressString, bigintToNumber, createRange, serialize, stringAsHexString } from '../utils/utils.js'
 import { CONTRACTS, TORNADO_GOVERNANCE_VOTING_DELAY } from '../utils/constants.js'
 import { ReadClient, WriteClient } from '../utils/wallet.js'
-import { getCacheGovernanceListVotes, getCacheProposalEvents, getCacheProposals, storeLocalCacheGovernanceListVotes, storeLocalCacheProposalEvents, storeLocalCacheProposals } from '../utils/logCache.js'
+import { getCacheExecutedProposals, getCacheGovernanceListVotes, getCacheProposalEvents, getCacheProposals, storeLocalCacheGovernanceListVotes, storeLocalCacheProposalEvents, storeLocalCacheProposals, storeLocalExecutedProposals } from '../utils/logCache.js'
 import { JsonRpcResponseError } from '../testsuite/simulator/utils/errors.js'
 import { bigIntMax } from '../utils/bigint.js'
 
@@ -102,16 +102,6 @@ export const getProposal = async (client: ReadClient, proposalId: EthereumQuanti
 		functionName: 'proposals',
 		args: [proposalId]
 	})
-
-	if (returnValue[0] === undefined ||
-		returnValue[1] === undefined ||
-		returnValue[2] === undefined ||
-		returnValue[3] === undefined ||
-		returnValue[4] === undefined ||
-		returnValue[5] === undefined ||
-		returnValue[6] === undefined ||
-		returnValue[7] === undefined
-	) throw new Error('malformed output')
 	return {
 		proposer: EthereumAddress.parse(returnValue[0]),
 		target: EthereumAddress.parse(returnValue[1]),
@@ -155,17 +145,14 @@ export const governanceListVotes = async (client: ReadClient, latestBlockNumber:
 		toBlock: latestBlockNumber
 	})
 	const parsed = parseEventLogs({ abi: [votedEvent], logs })
-	const moreParsed = parsed.map((log) => {
-		if (log.args.proposalId === undefined || log.args.voter === undefined || log.args.support === undefined || log.args.votes === undefined) throw new Error('args was undefined')
-		return {
-			proposalId: log.args.proposalId,
-			voter: EthereumAddress.parse(log.args.voter),
-			support: log.args.support,
-			votes: log.args.votes,
-			blockNumber: log.blockNumber,
-			transactionHash: EthereumBytes32.parse(log.transactionHash)
-		}
-	})
+	const moreParsed = parsed.map((log) => ({
+		proposalId: log.args.proposalId,
+		voter: EthereumAddress.parse(log.args.voter),
+		support: log.args.support,
+		votes: log.args.votes,
+		blockNumber: log.blockNumber,
+		transactionHash: EthereumBytes32.parse(log.transactionHash)
+	}))
 	const votingReasons = await getVotingReasons(client, moreParsed.map((x) => x.transactionHash))
 	if (moreParsed.length !== votingReasons.length) throw new Error ('length mismatch')
 	const withReasons = moreParsed.map((moreParsedOne, index) => ({ ...moreParsedOne, comment: votingReasons[index] }))
@@ -204,6 +191,25 @@ export const getVotingReasons = async (client: ReadClient, transactionHashes: Et
 	}))
 }
 
+export const getExecutedProposals = async (client: ReadClient, latestBlockNumber: bigint): Promise<ExecutedProposals> => {
+	const events = ABIS.mainnet.governance['Governance Impl'].filter((x) => x.type === 'event')
+	const proposalExecutedEvent = events.find((x) => x.name === 'ProposalExecuted')
+	if (proposalExecutedEvent === undefined) throw new Error('no proposal executed events in the abi')
+	const lastFinalizedPromise = client.getBlock({ includeTransactions: false, blockTag: 'finalized' })
+	const cache = await getCacheExecutedProposals()
+	const logs = await binarySearchLogs(client, {
+		address: addressString(CONTRACTS.mainnet.governance['Governance Contract']),
+		event: proposalExecutedEvent,
+		fromBlock: cache.latestBlock,
+		toBlock: latestBlockNumber
+	})
+	const parsed = parseEventLogs({ abi: [proposalExecutedEvent], logs })
+	const complete = [...cache.cache, ...parsed.map((log) => ({ proposalId: log.args.proposalId, blockNumber: log.blockNumber }))]
+	const lastFinalized = await lastFinalizedPromise
+	await storeLocalExecutedProposals({ latestBlock: lastFinalized.number, cache: complete.filter((event) => event.blockNumber <= lastFinalized.number) })
+	return complete
+}
+
 export const getProposalEvents = async (client: ReadClient, latestBlockNumber: bigint): Promise<ProposalEvents> => {
 	const events = ABIS.mainnet.governance['Governance Impl'].filter((x) => x.type === 'event')
 	const proposalEvent = events.find((x) => x.name === 'ProposalCreated')
@@ -217,23 +223,15 @@ export const getProposalEvents = async (client: ReadClient, latestBlockNumber: b
 		toBlock: latestBlockNumber
 	})
 	const parsed = parseEventLogs({ abi: [proposalEvent], logs })
-	const complete = [...cache.cache, ...parsed.map((log) => {
-		if (log.args.description === undefined ||
-			log.args.target === undefined ||
-			log.args.startTime === undefined ||
-			log.args.endTime === undefined ||
-			log.args.id === undefined
-		) throw new Error('args was undefined')
-		return {
-			blockNumber: log.blockNumber,
-			description: log.args.description,
-			proposalId: log.args.id,
-			proposer: EthereumAddress.parse(log.args.proposer),
-			target: EthereumAddress.parse(log.args.target),
-			startTime: log.args.startTime,
-			endTime: log.args.endTime,
-		}
-	})]
+	const complete = [...cache.cache, ...parsed.map((log) => ({
+		blockNumber: log.blockNumber,
+		description: log.args.description,
+		proposalId: log.args.id,
+		proposer: EthereumAddress.parse(log.args.proposer),
+		target: EthereumAddress.parse(log.args.target),
+		startTime: log.args.startTime,
+		endTime: log.args.endTime
+	}))]
 	const lastFinalized = await lastFinalizedPromise
 	await storeLocalCacheProposalEvents({ latestBlock: lastFinalized.number, cache: complete.filter((event) => event.blockNumber <= lastFinalized.number) })
 	return complete
