@@ -6,7 +6,7 @@ import { appendTransaction, createSimulationState, getInputFieldFromDataOrInput,
 import { SimulationState } from './types/visualizerTypes.js'
 import { StateOverrides } from './types/ethSimulateTypes.js'
 import { EthereumJSONRpcRequestHandler } from './EthereumJSONRpcRequestHandler.js'
-import { EthereumBytes32, EthereumData, EthereumQuantity, EthereumSignedTransactionWithBlockData } from '../../types/wire-types.js'
+import { EthereumBytes32, EthereumData, EthereumQuantity, EthereumSignedTransactionWithBlockData } from './types/wire-types.js'
 import { ErrorWithDataAndCode, JsonRpcResponseError, printError } from './utils/errors.js'
 import * as funtypes from 'funtypes'
 
