@@ -23,7 +23,7 @@ const dependencyPaths: Dependency[] = [
 	{ packageName: '@noble/curves', subfolderToVendor: 'esm', mainEntrypointFile: 'index.js', alternateEntrypoints: { 'secp256k1': 'secp256k1.js', 'abstract/modular': 'abstract/modular.js', 'abstract/utils': 'abstract/utils.js' } },
 	{ packageName: 'multiformats', subfolderToVendor: 'dist/src', mainEntrypointFile: 'index.js', alternateEntrypoints: { 'bases/base32': 'bases/base32.js', 'bases/base36': 'bases/base36.js', 'bases/base58': 'bases/base58.js', 'bases/base64': 'bases/base64.js', 'cid': 'cid.js', 'hashes/digest': 'hashes/digest.js' } },
 	{ packageName: 'funtypes', subfolderToVendor: 'lib', mainEntrypointFile: 'index.mjs', alternateEntrypoints: {} },
-	{ packageName: 'tronar', subfolderToVendor: 'js', mainEntrypointFile: 'index.js', alternateEntrypoints: { 'components/connect': 'components/connect.js', 'governance': 'governance.js', 'wallet': 'wallet.js', 'types/types': 'types/types.js', 'types/wire-types': 'types/wire-types.js', 'utils/bigint': 'utils/bigint.js' } },
+	{ packageName: 'tronar', subfolderToVendor: 'js', mainEntrypointFile: 'index.js', alternateEntrypoints: {} },
 	{ packageName: 'ox', subfolderToVendor: '_esm', mainEntrypointFile: 'index.js', alternateEntrypoints: { 'BlockOverrides': 'core/BlockOverrides.js' } },
 ]
 

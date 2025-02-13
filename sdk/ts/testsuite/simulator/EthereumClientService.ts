@@ -10,7 +10,7 @@ import { getEcRecoverOverride } from './ethereumByteCodes.js'
 import * as funtypes from 'funtypes'
 import { RpcEntry } from './rpc.js'
 import { encodeAbiParameters, keccak256, parseSignature } from 'viem'
-import { stringAsHexString } from '../../../utils/utils.js'
+import { stringAsHexString } from '../../utils/utils.js'
 import { SimulationStateInput, SimulationStateInputBlock } from './visualizer-types.js'
 
 export type IEthereumClientService = Pick<EthereumClientService, keyof EthereumClientService>

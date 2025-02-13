@@ -1,10 +1,10 @@
-import { approveTorn, getProposal, getProposalEvents, getTornBalance, getVotingReasons, governanceCastVote, governanceCreateProposal, governanceGetProposalCount, governanceListProposals, governanceListVotesForId, governanceLockWithApproval, governanceUnLockStake } from '../governance.js'
+import { approveTorn, getProposal, getProposalEvents, getTornBalance, getVotingReasons, governanceCastVote, governanceCreateProposal, governanceGetProposalCount, governanceListProposals, governanceListVotesForId, governanceLockWithApproval, governanceUnLockStake } from '../tornado/governance.js'
 import { EthereumAddress, EthereumQuantity } from '../types/types.js'
 import { CONTRACTS, TORNADO_GOVERNANCE_VOTING_DELAY } from '../utils/constants.js'
-import { runTestsSequentially } from './testsuite/ethSimulateTestSuite.js'
+import { runTestsSequentially } from '../testsuite/ethSimulateTestSuite.js'
 import { addressString } from '../utils/utils.js'
-import { createWriteClient } from '../wallet.js'
-import { getMockedEthSimulateWindowEthereum, MockWindowEthereum } from './testsuite/simulator/MockWindowEthereum.js'
+import { createWriteClient } from '../utils/wallet.js'
+import { getMockedEthSimulateWindowEthereum, MockWindowEthereum } from '../testsuite/simulator/MockWindowEthereum.js'
 import { encodeAbiParameters, keccak256 } from 'viem'
 
 const vitalik = 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045n

@@ -20,22 +20,11 @@
 		"cache": "tsc && node ./js/createCache.js"
 	},
 	"exports": {
-		".": "./js/index.js",
-		"./components/connect": "./js/components/connect.js",
-		"./governance": "./js/governance.js",
-		"./wallet": "./js/wallet.js",
-		"./types/types": "./js/types/types.js",
-		"./types/wire-types": "./js/types/wire-types.js",
-		"./utils/bigint": "./js/utils/bigint.js"
+		".": "./js/index.js"
 	},
 	"typesVersions": {
 		"*": {
-			"components/connect": ["./js/components/connect"],
-			"governance": ["./js/governance"],
-			"wallet": ["./js/wallet"],
-			"types/types": ["./js/types/types"],
-			"types/wire-types": ["./js/types/wire-types"],
-			"utils/bigint": ["./js/utils/bigint"]
+			".": ["./js/index"]
 		}
 	}
 }

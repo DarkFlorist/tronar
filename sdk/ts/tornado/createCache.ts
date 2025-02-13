@@ -1,6 +1,6 @@
 import { createPublicClient, http } from 'viem'
 import { mainnet } from 'viem/chains'
-import { getProposalEvents, governanceGetProposalCount, governanceListProposals, governanceListVotes } from '../governance.js'
+import { getProposalEvents, governanceGetProposalCount, governanceListProposals, governanceListVotes } from './governance.js'
 import { GovernanceVotesCache, ProposalEventsCache, ProposalsCache } from '../types/types.js'
 
 export const createCaches = async () => {

@@ -1,15 +1,11 @@
 import { useSignal } from '@preact/signals'
 import { OptionalSignal, useOptionalSignal } from '../utils/OptionalSignal.js'
 import 'viem/window'
-import { connectToWallet } from 'tronar/components/connect'
-import { EthereumAddress, EthereumQuantity, GovernanceVote, GovernanceVotes, Proposal, ProposalEvent, ProposalEvents, Proposals } from 'tronar/types/types'
-import { getProposalEvents, governanceListProposals, governanceListVotes, getOwnTornBalance, governanceCreateProposal, governanceLockWithApproval, governanceUnLockStake, governanceCastVote, governanceGetProposalCount } from 'tronar/governance'
-import { createReadClient, createWriteClient, WriteClient } from 'tronar/wallet'
-import { bytes32String } from 'tronar/utils/bigint'
+import { bytes32String, connectToWallet, createReadClient, createWriteClient, EthereumAddress, EthereumQuantity, getOwnTornBalance, getProposalEvents, governanceCastVote, governanceCreateProposal, governanceGetProposalCount, governanceListProposals, governanceListVotes, governanceLockWithApproval, governanceUnLockStake, GovernanceVote, GovernanceVotes, Proposal, ProposalEvent, ProposalEvents, Proposals, WriteClient } from 'tronar'
 
 export type AccountAddress = `0x${ string }`
 
-interface WalletComponentProps {
+interface ConnectWalletButtonProps {
 	onAccountChange: (address: EthereumAddress | undefined) => void
 	onError: (error: string | undefined) => void
 }
@@ -18,7 +14,7 @@ interface WalletProps {
 	writeClient: OptionalSignal<WriteClient>
 }
 
-const WalletComponent = ({ onAccountChange }: WalletComponentProps) => {
+const ConnectWalletButton = ({ onAccountChange }: ConnectWalletButtonProps) => {
 	const loadingAccount = useSignal<boolean>(false)
 	const error = useSignal<string | undefined>(undefined)
 	const maybeAccountAddress = useOptionalSignal<EthereumAddress>(undefined)
@@ -40,13 +36,9 @@ const WalletComponent = ({ onAccountChange }: WalletComponentProps) => {
 	if (error.value !== undefined) return <p class = 'paragraph'> { error.value }</p>
 	if (loadingAccount.value) return <></>
 
-	return maybeAccountAddress.value !== undefined ? (
-		<p style = 'color: gray; justify-self: right;'>{ `Connected with ${ maybeAccountAddress.value }` }</p>
-	) : (
-		<button class = 'button is-primary' style = 'justify-self: right;' onClick = { connect }>
-			{ `Connect wallet` }
-		</button>
-	)
+	return <button class = 'button is-primary' style = 'justify-self: right;' onClick = { connect }>
+		{ `Connect wallet` }
+	</button>
 }
 
 const ProposalEventsComponent = () => {
@@ -374,7 +366,8 @@ export function App() {
 	}
 
 	return <main style = 'overflow: auto;'>
-		<WalletComponent onAccountChange = { handleAccountChange } onError = { handleError } />
+		<p>{ writeClient.deepValue?.account.address } </p>
+		<ConnectWalletButton onAccountChange = { handleAccountChange } onError = { handleError } />
 		<ProposalEventsComponent/>
 		<ProposalsComponent/>
 		<Votes/>

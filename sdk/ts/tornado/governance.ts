@@ -1,13 +1,13 @@
 import { AbiEvent, BlockNumber, BlockTag, decodeAbiParameters, decodeFunctionData, encodeAbiParameters, encodeFunctionData, GetLogsParameters, GetLogsReturnType, parseEventLogs, TimeoutError, TransactionNotFoundError } from 'viem'
 import { mainnet } from 'viem/chains'
-import { EthereumAddress, EthereumBytes32, EthereumQuantity, Proposal, ProposalEvents, TornadoVotingReason, VoteComment, VoteCommentOrUndefined } from './types/types.js'
-import { ABIS } from './abi/abis.js'
-import { addressString, bigintToNumber, createRange, serialize, stringAsHexString } from './utils/utils.js'
-import { CONTRACTS, TORNADO_GOVERNANCE_VOTING_DELAY } from './utils/constants.js'
-import { ReadClient, WriteClient } from './wallet.js'
-import { getCacheGovernanceListVotes, getCacheProposalEvents, getCacheProposals, storeLocalCacheGovernanceListVotes, storeLocalCacheProposalEvents, storeLocalCacheProposals } from './utils/readCache.js'
-import { JsonRpcResponseError } from './tests/testsuite/simulator/errors.js'
-import { bigIntMax } from './utils/bigint.js'
+import { EthereumAddress, EthereumBytes32, EthereumQuantity, Proposal, ProposalEvents, TornadoVotingReason, VoteComment, VoteCommentOrUndefined } from '../types/types.js'
+import { ABIS } from '../abi/abis.js'
+import { addressString, bigintToNumber, createRange, serialize, stringAsHexString } from '../utils/utils.js'
+import { CONTRACTS, TORNADO_GOVERNANCE_VOTING_DELAY } from '../utils/constants.js'
+import { ReadClient, WriteClient } from '../utils/wallet.js'
+import { getCacheGovernanceListVotes, getCacheProposalEvents, getCacheProposals, storeLocalCacheGovernanceListVotes, storeLocalCacheProposalEvents, storeLocalCacheProposals } from '../utils/logCache.js'
+import { JsonRpcResponseError } from '../testsuite/simulator/errors.js'
+import { bigIntMax } from '../utils/bigint.js'
 
 export async function binarySearchLogs(client: ReadClient, logFilter: GetLogsParameters<AbiEvent>): Promise<GetLogsReturnType<AbiEvent, undefined, undefined, BlockNumber | BlockTag, BlockNumber | BlockTag>> {
 	const getLastBlock = async () => {
