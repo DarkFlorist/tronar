@@ -1,8 +1,8 @@
 
 import * as funtypes from 'funtypes'
 import { EthereumAddress, EthereumQuantity, EthereumSendableSignedTransaction, EthereumTimestamp } from './wire-types.js'
-import { SignMessageParams } from './jsonRpc-signing-types.js'
-import { EthSimulateV1CallResult, StateOverrides } from './ethSimulate-types.js'
+import { SignMessageParams } from './jsonRpcSigningTypes.js'
+import { EthSimulateV1CallResult, StateOverrides } from './ethSimulateTypes.js'
 
 export type SimulatedTransaction = funtypes.Static<typeof SimulatedTransaction>
 export const SimulatedTransaction = funtypes.ReadonlyObject({

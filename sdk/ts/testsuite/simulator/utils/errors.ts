@@ -1,4 +1,4 @@
-import { JsonRpcErrorResponse } from '../types/JsonRpc-types.js'
+import { JsonRpcErrorResponse } from '../types/jsonRpcTypes.js'
 import { NEW_BLOCK_ABORT } from './constants.js'
 
 class ErrorWithData extends Error {

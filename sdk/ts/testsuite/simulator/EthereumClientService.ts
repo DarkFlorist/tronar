@@ -3,15 +3,15 @@ import { IUnsignedTransaction1559 } from './types/ethereum.js'
 import { MAX_BLOCK_CACHE, TIME_BETWEEN_BLOCKS } from './utils/constants.js'
 import { IEthereumJSONRpcRequestHandler } from './EthereumJSONRpcRequestHandler.js'
 import { addressString, bigintToNumber, bytes32String } from './utils/bigint.js'
-import { BlockCalls, EthSimulateV1Result } from './types/ethSimulate-types.js'
-import { EthGetStorageAtResponse, EthTransactionReceiptResponse, EthGetLogsRequest, EthGetLogsResponse, DappRequestTransaction } from './types/JsonRpc-types.js'
+import { BlockCalls, EthSimulateV1Result } from './types/ethSimulateTypes.js'
+import { EthGetStorageAtResponse, EthTransactionReceiptResponse, EthGetLogsRequest, EthGetLogsResponse, DappRequestTransaction } from './types/jsonRpcTypes.js'
 import { MessageHashAndSignature, simulatePersonalSign } from './SimulationModeEthereumClientService.js'
 import { getEcRecoverOverride } from './utils/ethereumByteCodes.js'
 import * as funtypes from 'funtypes'
 import { RpcEntry } from './types/rpc.js'
 import { encodeAbiParameters, keccak256, parseSignature } from 'viem'
 import { stringAsHexString } from '../../utils/utils.js'
-import { SimulationStateInput, SimulationStateInputBlock } from './types/visualizer-types.js'
+import { SimulationStateInput, SimulationStateInputBlock } from './types/visualizerTypes.js'
 
 export type IEthereumClientService = Pick<EthereumClientService, keyof EthereumClientService>
 export class EthereumClientService {

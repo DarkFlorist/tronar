@@ -1,4 +1,4 @@
-import { EthSimulateV1Result } from './simulator/types/ethSimulate-types.js'
+import { EthSimulateV1Result } from './simulator/types/ethSimulateTypes.js'
 
 const printResults = (result: EthSimulateV1Result) => {
 	console.log(JSON.stringify(EthSimulateV1Result.serialize(result)))

@@ -1,4 +1,4 @@
-import { EthereumJsonRpcRequest, JsonRpcResponse } from './types/JsonRpc-types.js'
+import { EthereumJsonRpcRequest, JsonRpcResponse } from './types/jsonRpcTypes.js'
 import { JsonRpcResponseError } from './utils/errors.js'
 import { EthereumQuantity, serialize } from './types/wire-types.js'
 import { fetchWithTimeout } from './utils/requests.js'
