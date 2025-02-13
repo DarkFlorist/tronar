@@ -1,22 +1,4 @@
-import { BlockCall, EthSimulateV1Result, StateOverrides } from './simulator/ethSimulate-types.js'
-import { jsonRpcRequest } from './ethSimulate.js'
-
-export const ethSimulateTransactions = async (rpc: string, transactions: readonly BlockCall[], stateOverrides: StateOverrides): Promise<EthSimulateV1Result> => {
-	return EthSimulateV1Result.parse(await jsonRpcRequest(rpc, {
-		method: 'eth_simulateV1',
-		params: [
-			{
-				blockStateCalls: [{
-					calls: transactions,
-					stateOverrides: stateOverrides,
-				}],
-				traceTransfers: true,
-				validation: false,
-			},
-			'latest'
-		]
-	} as const))
-}
+import { EthSimulateV1Result } from './simulator/types/ethSimulate-types.js'
 
 const printResults = (result: EthSimulateV1Result) => {
 	console.log(JSON.stringify(EthSimulateV1Result.serialize(result)))

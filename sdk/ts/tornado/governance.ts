@@ -6,7 +6,7 @@ import { addressString, bigintToNumber, createRange, serialize, stringAsHexStrin
 import { CONTRACTS, TORNADO_GOVERNANCE_VOTING_DELAY } from '../utils/constants.js'
 import { ReadClient, WriteClient } from '../utils/wallet.js'
 import { getCacheGovernanceListVotes, getCacheProposalEvents, getCacheProposals, storeLocalCacheGovernanceListVotes, storeLocalCacheProposalEvents, storeLocalCacheProposals } from '../utils/logCache.js'
-import { JsonRpcResponseError } from '../testsuite/simulator/errors.js'
+import { JsonRpcResponseError } from '../testsuite/simulator/utils/errors.js'
 import { bigIntMax } from '../utils/bigint.js'
 
 export async function binarySearchLogs(client: ReadClient, logFilter: GetLogsParameters<AbiEvent>): Promise<GetLogsReturnType<AbiEvent, undefined, undefined, BlockNumber | BlockTag, BlockNumber | BlockTag>> {

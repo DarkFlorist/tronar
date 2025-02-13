@@ -1,4 +1,4 @@
-import { EthereumAccessList, EthereumAddress, EthereumBlockTag, EthereumBytes32, EthereumData, EthereumInput, EthereumQuantity, EthereumQuantitySmall, EthereumTimestamp, LiteralConverterParserFactory } from '../../types/wire-types.js'
+import { EthereumAccessList, EthereumAddress, EthereumBlockTag, EthereumBytes32, EthereumData, EthereumInput, EthereumQuantity, EthereumQuantitySmall, EthereumTimestamp, LiteralConverterParserFactory } from '../../../types/wire-types.js'
 import * as funtypes from 'funtypes'
 
 type AccountOverride = funtypes.Static<typeof AccountOverride>

@@ -104,21 +104,3 @@ export const PRIMARY_COLOR = '#58a5b3'
 export const CANNOT_SIMULATE_OFF_LEGACY_BLOCK = 'Cannot simulate off a legacy block'
 
 export const NEW_BLOCK_ABORT = 'New Block Abort'
-
-export const MAKE_YOU_RICH_TRANSACTION = {
-	transaction: {
-		type: '1559' as const,
-		maxFeePerGas: 0n,
-		maxPriorityFeePerGas: 0n,
-		gas: 21000n,
-		value: 200000000000000000000000n,
-		input: new Uint8Array(0),
-		accessList: [],
-	},
-	website: {
-		websiteOrigin: 'The Interceptor',
-		title: 'The Interceptor',
-		icon: undefined,
-	},
-	transactionSendingFormat: 'eth_sendTransaction' as const,
-}

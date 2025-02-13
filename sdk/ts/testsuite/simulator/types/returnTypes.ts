@@ -1,5 +1,5 @@
 import * as funtypes from 'funtypes'
-import { EthGetFeeHistoryResponse, EthGetLogsResponse, EthTransactionReceiptResponse, GetBlockReturn } from './JsonRpc-types'
+import { EthGetFeeHistoryResponse, EthGetLogsResponse, EthTransactionReceiptResponse, GetBlockReturn } from './types/JsonRpc-types'
 import { EthereumAddress, EthereumBytes32, EthereumData, EthereumQuantity, EthereumSignedTransactionWithBlockData, NonHexBigInt } from '../../types/wire-types'
 
 export type NonForwardingRPCRequestSuccessfullReturnValue = funtypes.Static<typeof NonForwardingRPCRequestSuccessfullReturnValue>

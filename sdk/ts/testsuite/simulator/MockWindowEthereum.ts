@@ -1,13 +1,13 @@
 import { EIP1193Provider } from 'viem'
-import { CANNOT_SIMULATE_OFF_LEGACY_BLOCK, DEFAULT_CALL_ADDRESS } from './constants.js'
+import { CANNOT_SIMULATE_OFF_LEGACY_BLOCK, DEFAULT_CALL_ADDRESS } from './utils/constants.js'
 import { EthereumClientService } from './EthereumClientService.js'
-import { EthCallParams, EthereumJsonRpcRequest, EthGetLogsResponse, GetBlockReturn, SendTransactionParams } from './JsonRpc-types.js'
+import { EthCallParams, EthereumJsonRpcRequest, EthGetLogsResponse, GetBlockReturn, SendTransactionParams } from './types/JsonRpc-types.js'
 import { appendTransaction, createSimulationState, getInputFieldFromDataOrInput, getPreSimulated, getSimulatedBlock, getSimulatedBlockNumber, getSimulatedLogs, getSimulatedTransactionByHash, getSimulatedTransactionCountOverStack, mockSignTransaction, simulatedCall, simulateEstimateGas } from './SimulationModeEthereumClientService.js'
-import { SimulationState } from './visualizer-types.js'
-import { StateOverrides } from './ethSimulate-types.js'
+import { SimulationState } from './types/visualizer-types.js'
+import { StateOverrides } from './types/ethSimulate-types.js'
 import { EthereumJSONRpcRequestHandler } from './EthereumJSONRpcRequestHandler.js'
 import { EthereumBytes32, EthereumData, EthereumQuantity, EthereumSignedTransactionWithBlockData } from '../../types/wire-types.js'
-import { ErrorWithDataAndCode, JsonRpcResponseError, printError } from './errors.js'
+import { ErrorWithDataAndCode, JsonRpcResponseError, printError } from './utils/errors.js'
 import * as funtypes from 'funtypes'
 
 async function singleCallWithFromOverride(ethereumClientService: EthereumClientService, simulationState: SimulationState | undefined, request: EthCallParams, from: bigint) {

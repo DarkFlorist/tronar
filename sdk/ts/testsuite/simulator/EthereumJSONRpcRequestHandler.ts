@@ -1,8 +1,8 @@
-import { EthereumJsonRpcRequest, JsonRpcResponse } from './JsonRpc-types.js'
-import { JsonRpcResponseError } from './errors.js'
-import { EthereumQuantity, serialize } from './wire-types.js'
-import { fetchWithTimeout } from './requests.js'
-import { Future } from './future.js'
+import { EthereumJsonRpcRequest, JsonRpcResponse } from './types/JsonRpc-types.js'
+import { JsonRpcResponseError } from './utils/errors.js'
+import { EthereumQuantity, serialize } from './types/wire-types.js'
+import { fetchWithTimeout } from './utils/requests.js'
+import { Future } from './utils/future.js'
 import { keccak256, toBytes } from 'viem'
 
 type ResolvedResponse = { responseState: 'failed', response: Response } | { responseState: 'success', response: unknown }

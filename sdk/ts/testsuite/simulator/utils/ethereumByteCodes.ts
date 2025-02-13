@@ -1,5 +1,5 @@
 
-import { EthereumData } from './wire-types.js'
+import { EthereumData } from '../types/wire-types.js'
 
 /*
 pragma solidity ^0.8.18;

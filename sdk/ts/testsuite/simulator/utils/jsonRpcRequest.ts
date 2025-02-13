@@ -1,7 +1,7 @@
 import * as funtypes from 'funtypes'
 import { serialize } from '../types/wire-types.js'
-import { EthereumJsonRpcRequest } from './simulator/JsonRpc-types.js'
-import { JsonRpcResponseError } from './simulator/errors.js'
+import { EthereumJsonRpcRequest } from '../types/JsonRpc-types.js'
+import { JsonRpcResponseError } from '../utils/errors.js'
 
 type JsonRpcSuccessResponse = funtypes.Static<typeof JsonRpcSuccessResponse>
 const JsonRpcSuccessResponse = funtypes.ReadonlyObject({

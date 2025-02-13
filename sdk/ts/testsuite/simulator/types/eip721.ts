@@ -1,5 +1,5 @@
 import * as funtypes from 'funtypes'
-import { JSONEncodeableObject, isJSON } from './json.js'
+import { JSONEncodeableObject, isJSON } from '../utils/json.js'
 import { serialize } from './wire-types.js'
 
 type EIP712MessageUnderlying = funtypes.Static<typeof EIP712MessageUnderlying>
