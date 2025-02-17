@@ -23,13 +23,12 @@
 		"noUnusedParameters": true,
 		"baseUrl": ".",
 		"paths": {
-			"@tronar/*": ["../sdk/js/*"] // Optional, but useful for IDE hints
+			"tronar/*": ["../sdk/js/*"]
 		},
 		"jsx": "react-jsx",
 		"jsxImportSource": "preact",
 		"lib": ["ESNext", "DOM"],
 		"typeRoots": [ "./node_modules/@types" ],
-		// add any @types here, empty array instead of default to prevent @types/node from being picked up
 		"types": [],
 	},
 	"include": [

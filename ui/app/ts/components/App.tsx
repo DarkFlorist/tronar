@@ -1,7 +1,7 @@
 import { useSignal } from '@preact/signals'
 import { OptionalSignal, useOptionalSignal } from '../utils/OptionalSignal.js'
 import 'viem/window'
-import { bytes32String, connectToWallet, createReadClient, createWriteClient, EthereumAddress, EthereumQuantity, getOwnTornBalance, getProposalEvents, governanceCastVote, governanceCreateProposal, governanceGetProposalCount, governanceListProposals, governanceListVotes, governanceLockWithApproval, governanceUnLockStake, GovernanceVote, GovernanceVotes, Proposal, ProposalEvent, ProposalEvents, Proposals, WriteClient } from 'tronar'
+import { bytes32String, connectToWallet, createReadClient, createWriteClient, EthereumAddress, EthereumQuantity, getOwnTornBalance, getProposalEvents, governanceCastVote, governanceCreateProposal, governanceGetProposalCount, governanceListProposals, governanceListVotes, governanceLockWithApproval, governanceUnLockStake, GovernanceVote, GovernanceVotes, Proposal, ProposalEvent, ProposalEvents, Proposals, WriteClient, getTimestamp, getProposalStatus } from 'tronar'
 
 export type AccountAddress = `0x${ string }`
 
@@ -80,11 +80,13 @@ const ProposalEventsComponent = () => {
 
 const ProposalsComponent = () => {
 	const proposals = useSignal<Proposals>([])
+	const timestamp = useSignal<EthereumQuantity>(0n)
 
 	const fetchProposalEvents = async () => {
 		const client = createReadClient(window.ethereum)
 		const proposalCount = await governanceGetProposalCount(client)
 		proposals.value = await governanceListProposals(client, proposalCount)
+		timestamp.value = await getTimestamp(client)
 	}
 
 	return <div>
@@ -112,6 +114,7 @@ const ProposalsComponent = () => {
 				<td>{ proposal.againstVotes }</td>
 				<td>{ proposal.executed ? 'true' : 'false' }</td>
 				<td>{ proposal.extended ? 'true' : 'false' }</td>
+				<td>{ getProposalStatus(proposal, timestamp.value) } </td>
 			</tr>) }
 		</table>
 	</div>

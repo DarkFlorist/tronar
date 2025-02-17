@@ -41,8 +41,8 @@ const fetchJSON = async (file: string) => {
 
 export const getCacheProposals = async () => {
 	if (!isNode) { // TODO: add node support
-		const localData = localStorage.getItem(`proposals_${ network }`);
-		if (localData) return ProposalsCache.parse(localData)
+		const localData = localStorage.getItem(`proposals_${ network }`)
+		if (localData) return ProposalsCache.parse(JSON.parse(localData))
 	}
 	const data = await fetchJSON(`proposals_${ network }`)
 	return data ? ProposalsCache.parse(data) : { proposalCount: 0n, cache: [] }
@@ -50,8 +50,8 @@ export const getCacheProposals = async () => {
 
 export const getCacheProposalEvents = async () => {
 	if (!isNode) { // TODO: add node support
-		const localData = localStorage.getItem(`proposalEvents_${ network }`);
-		if (localData) return ProposalEventsCache.parse(localData)
+		const localData = localStorage.getItem(`proposalEvents_${ network }`)
+		if (localData) return ProposalEventsCache.parse(JSON.parse(localData))
 	}
 	const data = await fetchJSON(`proposalEvents_${ network }`)
 	return data ? ProposalEventsCache.parse(data) : { latestBlock: 0n, cache: [] }
@@ -59,8 +59,8 @@ export const getCacheProposalEvents = async () => {
 
 export const getCacheGovernanceListVotes = async () => {
 	if (!isNode) { // TODO: add node support
-		const localData = localStorage.getItem(`votes_${ network }`);
-		if (localData) return GovernanceVotesCache.parse(localData)
+		const localData = localStorage.getItem(`votes_${ network }`)
+		if (localData) return GovernanceVotesCache.parse(JSON.parse(localData))
 	}
 	const data = await fetchJSON(`votes_${ network }`)
 	return data ? GovernanceVotesCache.parse(data) : { latestBlock: 0n, cache: [] }
@@ -68,8 +68,8 @@ export const getCacheGovernanceListVotes = async () => {
 
 export const getCacheExecutedProposals = async () => {
 	if (!isNode) { // TODO: add node support
-		const localData = localStorage.getItem(`executedProposals_${ network }`);
-		if (localData) return ExecutedProposalsCache.parse(localData)
+		const localData = localStorage.getItem(`executedProposals_${ network }`)
+		if (localData) return ExecutedProposalsCache.parse(JSON.parse(localData))
 	}
 	const data = await fetchJSON(`executedProposals_${ network }`)
 	return data ? ExecutedProposalsCache.parse(data) : { latestBlock: 0n, cache: [] }

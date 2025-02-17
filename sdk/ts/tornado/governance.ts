@@ -9,6 +9,20 @@ import { getCacheExecutedProposals, getCacheGovernanceListVotes, getCacheProposa
 import { JsonRpcResponseError } from '../testsuite/simulator/utils/errors.js'
 import { bigIntMax } from '../utils/bigint.js'
 
+const QUORUM_VOTES = 25000000000000000000000n
+const EXECUTION_DELAY = 172800n
+const EXECUTION_EXPIRATION = 259200n
+
+export const getProposalStatus = (proposal: Proposal, timestamp: bigint) => {
+	if (timestamp <= proposal.startTime) return 'Pending'
+	if (timestamp <= proposal.endTime) return 'Active'
+	if (proposal.forVotes <= proposal.againstVotes || proposal.forVotes + proposal.againstVotes < QUORUM_VOTES) return 'Defeated'
+	if (proposal.executed) return 'Executed'
+	if (timestamp >= proposal.endTime + EXECUTION_DELAY + EXECUTION_EXPIRATION) return 'Expired'
+	if (timestamp >= proposal.endTime + EXECUTION_DELAY) return 'AwaitingExecution'
+	return 'Timelocked'
+}
+
 export async function binarySearchLogs(client: ReadClient, logFilter: GetLogsParameters<AbiEvent>): Promise<GetLogsReturnType<AbiEvent, undefined, undefined, BlockNumber | BlockTag, BlockNumber | BlockTag>> {
 	const getLastBlock = async () => {
 		if ('toBlock' in logFilter) {
