@@ -1,17 +1,13 @@
 import { AbiEvent, BlockNumber, BlockTag, decodeAbiParameters, decodeFunctionData, encodeAbiParameters, encodeFunctionData, GetLogsParameters, GetLogsReturnType, parseEventLogs, TimeoutError, TransactionNotFoundError } from 'viem'
 import { mainnet } from 'viem/chains'
-import { EthereumAddress, EthereumBytes32, EthereumQuantity, ExecutedProposals, Proposal, ProposalEvents, TornadoVotingReason, VoteCommentOrUndefined } from '../types/types.js'
+import { EthereumAddress, EthereumBytes32, EthereumQuantity, ExecutedProposals, JoinedProposals, Proposal, ProposalEvents, TornadoVotingReason, VoteCommentOrUndefined } from '../types/types.js'
 import { ABIS } from '../abi/abis.js'
 import { addressString, bigintToNumber, createRange, serialize, stringAsHexString } from '../utils/utils.js'
-import { CONTRACTS, TORNADO_GOVERNANCE_VOTING_DELAY } from '../utils/constants.js'
+import { CONTRACTS, EXECUTION_DELAY, EXECUTION_EXPIRATION, QUORUM_VOTES, TORNADO_GOVERNANCE_VOTING_DELAY } from '../utils/constants.js'
 import { ReadClient, WriteClient } from '../utils/wallet.js'
 import { getCacheExecutedProposals, getCacheGovernanceListVotes, getCacheProposalEvents, getCacheProposals, storeLocalCacheGovernanceListVotes, storeLocalCacheProposalEvents, storeLocalCacheProposals, storeLocalExecutedProposals } from '../utils/logCache.js'
 import { JsonRpcResponseError } from '../testsuite/simulator/utils/errors.js'
 import { bigIntMax } from '../utils/bigint.js'
-
-const QUORUM_VOTES = 25000000000000000000000n
-const EXECUTION_DELAY = 172800n
-const EXECUTION_EXPIRATION = 259200n
 
 export const getProposalStatus = (proposal: Proposal, timestamp: bigint) => {
 	if (timestamp <= proposal.startTime) return 'Pending'
@@ -131,12 +127,12 @@ export const getProposal = async (client: ReadClient, proposalId: EthereumQuanti
 
 export const governanceListProposals = async (client: ReadClient, proposalCount: bigint) => {
 	if (proposalCount === 0n) return []
-	const lastFinalizedPromise = client.getBlock({ includeTransactions: false, blockTag: 'finalized' })
+	const lastFinalized = await client.getBlock({ includeTransactions: false, blockTag: 'finalized' })
 	const cache = await getCacheProposals()
 	const proposals = (createRange(Number(cache.proposalCount), Number(proposalCount))).map((x) => BigInt(x))
 	const complete =  [...cache.cache, ...await Promise.all(proposals.map((proposal) => getProposal(client, proposal)))]
 
-	const latestFinalizedTimeStamp = (await lastFinalizedPromise).timestamp
+	const latestFinalizedTimeStamp = lastFinalized.timestamp
 	const finalizedProposals = complete.filter((event) => event.startTime - TORNADO_GOVERNANCE_VOTING_DELAY <= latestFinalizedTimeStamp)
 	await storeLocalCacheProposals({ proposalCount: bigIntMax(finalizedProposals.map((proposal) => proposal.proposalId)), cache: finalizedProposals })
 	return complete
@@ -146,9 +142,8 @@ export const governanceListVotes = async (client: ReadClient, latestBlockNumber:
 	const events = ABIS.mainnet.governance['Governance Impl'].filter((x) => x.type === 'event')
 	const votedEvent = events.find((x) => x.name === 'Voted')
 	if (votedEvent === undefined) throw new Error('no voting events in the abi')
-	const lastFinalizedPromise = client.getBlock({ includeTransactions: false, blockTag: 'finalized' })
+	const lastFinalized = await client.getBlock({ includeTransactions: false, blockTag: 'finalized' })
 	const cache = await getCacheGovernanceListVotes()
-	if (await client.getBlockNumber() !== latestBlockNumber) throw new Error('blocknumber mismatch')
 	const newestBlockN = (await client.getBlock()).number
 	if (newestBlockN !== latestBlockNumber) throw new Error(`block mismatch ${newestBlockN} vs ${latestBlockNumber}`)
 	const logs = await binarySearchLogs(client, {
@@ -171,7 +166,6 @@ export const governanceListVotes = async (client: ReadClient, latestBlockNumber:
 	if (moreParsed.length !== votingReasons.length) throw new Error ('length mismatch')
 	const withReasons = moreParsed.map((moreParsedOne, index) => ({ ...moreParsedOne, comment: votingReasons[index] }))
 	const complete = [...cache.cache, ...withReasons]
-	const lastFinalized = await lastFinalizedPromise
 	await storeLocalCacheGovernanceListVotes({ latestBlock: lastFinalized.number, cache: complete.filter((event) => event.blockNumber <= lastFinalized.number) })
 	return complete
 }
@@ -209,7 +203,7 @@ export const getExecutedProposals = async (client: ReadClient, latestBlockNumber
 	const events = ABIS.mainnet.governance['Governance Impl'].filter((x) => x.type === 'event')
 	const proposalExecutedEvent = events.find((x) => x.name === 'ProposalExecuted')
 	if (proposalExecutedEvent === undefined) throw new Error('no proposal executed events in the abi')
-	const lastFinalizedPromise = client.getBlock({ includeTransactions: false, blockTag: 'finalized' })
+	const lastFinalized = await client.getBlock({ includeTransactions: false, blockTag: 'finalized' })
 	const cache = await getCacheExecutedProposals()
 	const logs = await binarySearchLogs(client, {
 		address: addressString(CONTRACTS.mainnet.governance['Governance Contract']),
@@ -219,7 +213,6 @@ export const getExecutedProposals = async (client: ReadClient, latestBlockNumber
 	})
 	const parsed = parseEventLogs({ abi: [proposalExecutedEvent], logs })
 	const complete = [...cache.cache, ...parsed.map((log) => ({ proposalId: log.args.proposalId, blockNumber: log.blockNumber }))]
-	const lastFinalized = await lastFinalizedPromise
 	await storeLocalExecutedProposals({ latestBlock: lastFinalized.number, cache: complete.filter((event) => event.blockNumber <= lastFinalized.number) })
 	return complete
 }
@@ -228,7 +221,7 @@ export const getProposalEvents = async (client: ReadClient, latestBlockNumber: b
 	const events = ABIS.mainnet.governance['Governance Impl'].filter((x) => x.type === 'event')
 	const proposalEvent = events.find((x) => x.name === 'ProposalCreated')
 	if (proposalEvent === undefined) throw new Error('no voting events in the abi')
-	const lastFinalizedPromise = client.getBlock({ includeTransactions: false, blockTag: 'finalized' })
+	const lastFinalized = await client.getBlock({ includeTransactions: false, blockTag: 'finalized' })
 	const cache = await getCacheProposalEvents()
 	const logs = await binarySearchLogs(client, {
 		address: addressString(CONTRACTS.mainnet.governance['Governance Contract']),
@@ -246,7 +239,6 @@ export const getProposalEvents = async (client: ReadClient, latestBlockNumber: b
 		startTime: log.args.startTime,
 		endTime: log.args.endTime
 	}))]
-	const lastFinalized = await lastFinalizedPromise
 	await storeLocalCacheProposalEvents({ latestBlock: lastFinalized.number, cache: complete.filter((event) => event.blockNumber <= lastFinalized.number) })
 	return complete
 }
@@ -286,7 +278,24 @@ export const getTornBalance = async(client: ReadClient, account: EthereumAddress
 	})
 }
 
-export const getOwnTornBalance = async(client: ReadClient) => {
-	const addr = EthereumAddress.parse(client.account)
-	return await getTornBalance(client, addr)
+export const getJoinedProposals = async (client: ReadClient): Promise<JoinedProposals> => {
+	const latestBlockPromise = client.getBlockNumber()
+	const proposalCountPromise = governanceGetProposalCount(client)
+	const latestBlock = await latestBlockPromise
+	const proposalEventsPromise = getProposalEvents(client, latestBlock)
+	const listVotesPromise = governanceListVotes(client, latestBlock)
+	const executedProposalsPromise = getExecutedProposals(client, latestBlock)
+	const proposalCount = await proposalCountPromise
+	const allProposalsPromise = governanceListProposals(client, proposalCount)
+
+	const allProposals = await allProposalsPromise
+	const proposalEvents = await proposalEventsPromise
+	const listVotes = await listVotesPromise
+	const executedProposals = await executedProposalsPromise
+	return allProposals.map((proposal) => ({
+		...proposal,
+		description: proposalEvents.find((event) => event.proposalId === proposal.proposalId)?.description,
+		votes: listVotes.filter((vote) => vote.proposalId === proposal.proposalId),
+		executed: executedProposals.find((executed) => executed.proposalId === proposal.proposalId) !== undefined
+	}))
 }

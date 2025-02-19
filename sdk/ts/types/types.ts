@@ -65,13 +65,13 @@ export const Proposals = funtypes.ReadonlyArray(Proposal)
 
 export type ProposalEvent = funtypes.Static<typeof ProposalEvent>
 export const ProposalEvent = funtypes.ReadonlyObject({
-    blockNumber: EthereumQuantity,
-    description: funtypes.String,
-    proposalId: EthereumQuantity,
-    proposer: EthereumQuantity,
-    target: EthereumQuantity,
-    startTime: EthereumQuantity,
-    endTime: EthereumQuantity,
+	blockNumber: EthereumQuantity,
+	description: funtypes.String,
+	proposalId: EthereumQuantity,
+	proposer: EthereumQuantity,
+	target: EthereumQuantity,
+	startTime: EthereumQuantity,
+	endTime: EthereumQuantity,
 })
 
 export type ProposalEvents = funtypes.Static<typeof ProposalEvents>
@@ -129,3 +129,21 @@ export const ExecutedProposalsCache = funtypes.ReadonlyObject({
 	latestBlock: EthereumQuantity,
 	cache: ExecutedProposals,
 })
+
+export type JoinedProposal = funtypes.Static<typeof JoinedProposal>
+export const JoinedProposal = funtypes.ReadonlyObject({
+	proposer: EthereumAddress,
+	target: EthereumAddress,
+	startTime: EthereumQuantity,
+	endTime: EthereumQuantity,
+	forVotes: EthereumQuantity,
+	againstVotes: EthereumQuantity,
+	executed: funtypes.Boolean,
+	extended: funtypes.Boolean,
+	proposalId: EthereumQuantity,
+	description: funtypes.Union(funtypes.String, funtypes.Undefined),
+	votes: funtypes.ReadonlyArray(GovernanceVote)
+})
+
+export type JoinedProposals = funtypes.Static<typeof JoinedProposals>
+export const JoinedProposals = funtypes.ReadonlyArray(JoinedProposal)

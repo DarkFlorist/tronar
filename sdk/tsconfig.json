@@ -17,7 +17,7 @@
 		"noImplicitThis": true,
 		"noUncheckedIndexedAccess": true,
 		"skipLibCheck": false,
-		"composite": true,
+		"composite": false,
 		"typeRoots": [ "./node_modules/@types" ],
 	},
 	"include": [

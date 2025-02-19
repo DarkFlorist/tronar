@@ -1,7 +1,8 @@
 import { useSignal } from '@preact/signals'
 import { OptionalSignal, useOptionalSignal } from '../utils/OptionalSignal.js'
 import 'viem/window'
-import { bytes32String, connectToWallet, createReadClient, createWriteClient, EthereumAddress, EthereumQuantity, getOwnTornBalance, getProposalEvents, governanceCastVote, governanceCreateProposal, governanceGetProposalCount, governanceListProposals, governanceListVotes, governanceLockWithApproval, governanceUnLockStake, GovernanceVote, GovernanceVotes, Proposal, ProposalEvent, ProposalEvents, Proposals, WriteClient, getTimestamp, getProposalStatus } from 'tronar'
+import { bytes32String, connectToWallet, checkSummedAddressString, createReadClient, createWriteClient, EthereumAddress, EthereumQuantity, governanceCastVote, governanceCreateProposal, governanceLockWithApproval, governanceUnLockStake, GovernanceVote, WriteClient, getTimestamp, getProposalStatus, getJoinedProposals, getTornBalance, JoinedProposals, JoinedProposal } from 'tronar'
+import { formatEther } from 'viem'
 
 export type AccountAddress = `0x${ string }`
 
@@ -13,6 +14,22 @@ interface ConnectWalletButtonProps {
 interface WalletProps {
 	writeClient: OptionalSignal<WriteClient>
 }
+
+export const humanReadableDate = (date: Date) => date.toISOString()
+
+export function humanReadableDateFromSeconds(timeInSeconds: bigint) {
+	return humanReadableDate(new Date(Number(timeInSeconds) * 1000))
+}
+
+export function customFormatEther(value: bigint, maxDecimals: number = 18, rounding: 'floor' | 'ceil' | 'round' = 'round') {
+	const power = 10n ** BigInt(18 - maxDecimals)
+	const remainder = value % power
+	const firstDecimal = remainder / 10n ** BigInt(18 - maxDecimals - 1)
+	let b = value - remainder
+	if (rounding === 'ceil' || (rounding === 'round' && firstDecimal >= 5)) b += power
+	return formatEther(b)
+}
+
 
 const ConnectWalletButton = ({ onAccountChange }: ConnectWalletButtonProps) => {
 	const loadingAccount = useSignal<boolean>(false)
@@ -41,141 +58,89 @@ const ConnectWalletButton = ({ onAccountChange }: ConnectWalletButtonProps) => {
 	</button>
 }
 
-const ProposalEventsComponent = () => {
-	const proposalEvents = useSignal<ProposalEvents>([])
-
-	const fetchProposalEvents = async () => {
-		const client = createReadClient(window.ethereum)
-		const blockNum = await client.getBlockNumber()
-		proposalEvents.value = await getProposalEvents(client, blockNum)
-	}
-
-	return <div>
-		<button class = 'button is-primary' style = 'justify-self: right;' onClick = { fetchProposalEvents }>
-			Get Proposal Events
-		</button>
-		<title>ProposalEvents</title>
-		<table>
-			<tr>
-				<th>Block Number</th>
-				<th>Proposal ID</th>
-				<th>Proposer</th>
-				<th>Description</th>
-				<th>Start Time</th>
-				<th>End Time</th>
-				<th>Target</th>
-			</tr>
-			{ proposalEvents.value.map((proposal: ProposalEvent) => <tr>
-				<td>{ proposal.blockNumber }</td>
-				<td>{ proposal.proposalId }</td>
-				<td>{ proposal.proposer }</td>
-				<td>{ proposal.description }</td>
-				<td>{ proposal.startTime }</td>
-				<td>{ proposal.endTime }</td>
-				<td>{ proposal.target }</td>
-			</tr>) }
-		</table>
-	</div>
-}
-
-const ProposalsComponent = () => {
-	const proposals = useSignal<Proposals>([])
+const ProposalsComponent = ({ writeClient }: WalletProps) => {
+	const proposals = useSignal<JoinedProposals>([])
 	const timestamp = useSignal<EthereumQuantity>(0n)
 
-	const fetchProposalEvents = async () => {
+	const fetchJoinedProposals = async () => {
 		const client = createReadClient(window.ethereum)
-		const proposalCount = await governanceGetProposalCount(client)
-		proposals.value = await governanceListProposals(client, proposalCount)
 		timestamp.value = await getTimestamp(client)
+		proposals.value = await getJoinedProposals(client)
 	}
 
-	return <div>
-		<button class = 'button is-primary' style = 'justify-self: right;' onClick = { fetchProposalEvents }>
-			Get Proposals
-		</button>
-		<title>Proposals</title>
-		<table>
-			<tr>
-				<th>Proposer</th>
-				<th>Target</th>
-				<th>Start Time</th>
-				<th>End Time</th>
-				<th>For Votes</th>
-				<th>Against Votes</th>
-				<th>Executed</th>
-				<th>Extended</th>
-			</tr>
-			{ proposals.value.map((proposal: Proposal) => <tr>
-				<td>{ proposal.proposer }</td>
-				<td>{ proposal.target }</td>
-				<td>{ proposal.startTime }</td>
-				<td>{ proposal.endTime }</td>
-				<td>{ proposal.forVotes }</td>
-				<td>{ proposal.againstVotes }</td>
-				<td>{ proposal.executed ? 'true' : 'false' }</td>
-				<td>{ proposal.extended ? 'true' : 'false' }</td>
-				<td>{ getProposalStatus(proposal, timestamp.value) } </td>
-			</tr>) }
-		</table>
-	</div>
+	return (
+		<div class = 'proposal-container'>
+			<button class = 'button' onClick = { fetchJoinedProposals }>
+				Get Proposals
+			</button>
+			{ proposals.value.map((proposal: JoinedProposal) => (
+				<div class = 'proposal-card'>
+					<div class = 'proposal-header'>
+						<h2>Proposal #{ proposal.proposalId }</h2>
+					</div>
+					<div class = 'proposal-content'>
+						<div class = 'proposal-details'>
+							<div><strong>Proposer:</strong> { checkSummedAddressString(proposal.proposer) }</div>
+							<div><strong>Target:</strong> { checkSummedAddressString(proposal.target) }</div>
+							<div><strong>Start Time:</strong> { humanReadableDateFromSeconds(proposal.startTime) }</div>
+							<div><strong>End Time:</strong> { humanReadableDateFromSeconds(proposal.endTime) }</div>
+							<div><strong>For Votes:</strong> { customFormatEther(proposal.forVotes, 1) }</div>
+							<div><strong>Against Votes:</strong> { customFormatEther(proposal.againstVotes, 1) }</div>
+							<div><strong>Executed:</strong> { proposal.executed ? 'true' : 'false' }</div>
+							<div><strong>Extended:</strong> { proposal.extended ? 'true' : 'false' }</div>
+							<div><strong>Description:</strong> { proposal.description }</div>
+							<div><strong>Status:</strong> { getProposalStatus(proposal, timestamp.value) }</div>
+							<CastVote writeClient = { writeClient } proposalId = { proposal.proposalId } />
+						</div>
+						<div class = 'vote-section'>
+							<div class = 'nested-table'>
+								<div class = 'nested-header'>
+									<div>Block Number</div>
+									<div>Voter</div>
+									<div>Support</div>
+									<div>Votes</div>
+									<div>Contact</div>
+									<div>Message</div>
+									<div>Transaction Hash</div>
+								</div>
+								{ proposal.votes.map((vote: GovernanceVote) => (
+									<div class = 'nested-row'>
+										<div>{ vote.blockNumber }</div>
+										<div>{ checkSummedAddressString(vote.voter) }</div>
+										<div>{ vote.support ? 'true' : 'false' }</div>
+										<div>{ customFormatEther(vote.votes, 1) }</div>
+										<div>{ vote.comment ? vote.comment.contact : '-' }</div>
+										<div>{ vote.comment ? vote.comment.message : '-' }</div>
+										<div>{ bytes32String(vote.transactionHash) }</div>
+									</div>
+								)) }
+							</div>
+						</div>
+					</div>
+				</div>
+			)) }
+		</div>
+	)
 }
 
-const Votes = () => {
-	const votes = useSignal<GovernanceVotes>([])
-	const fetchProposalEvents = async () => {
-		const client = createReadClient(window.ethereum)
-		const blockNum = await client.getBlockNumber()
-		votes.value = await governanceListVotes(client, blockNum)
-	}
-	return <div>
-		<button class = 'button is-primary' style = 'justify-self: right;' onClick = { fetchProposalEvents }>
-			Fetch Votes
-		</button>
-		<title>Votes</title>
-		<table>
-			<tr>
-				<th>Block Number</th>
-				<th>Proposal ID</th>
-				<th>Voter</th>
-				<th>Support</th>
-				<th>Votes</th>
-				<th>Contact</th>
-				<th>Message</th>
-				<th>Transaction Hash</th>
-			</tr>
-			{ votes.value.map((vote: GovernanceVote) => <tr>
-				<td>{ vote.blockNumber }</td>
-				<td>{ vote.proposalId }</td>
-				<td>{ vote.voter }</td>
-				<td>{ vote.support ? 'true' : 'false' }</td>
-				<td>{ vote.comment ? vote.comment.contact : '-' }</td>
-				<td>{ vote.comment ? vote.comment.message : '-' }</td>
-				<td>{ vote.votes }</td>
-				<td>{ bytes32String(vote.transactionHash) }</td>
-			</tr>) }
-		</table>
-	</div>
-}
-
-const Balance = () => {
+const Balance = ({ writeClient }: WalletProps) => {
 	const balance = useSignal<EthereumQuantity | undefined>(undefined)
 	const fetchBalance = async () => {
-		const client = createReadClient(window.ethereum)
-		balance.value = await getOwnTornBalance(client)
+		if (writeClient.deepValue === undefined) return
+		balance.value = await getTornBalance(writeClient.deepValue, EthereumAddress.parse(writeClient.deepValue.account.address))
 	}
-	return <div>
-		<button class = 'button is-primary' style = 'justify-self: right;' onClick = { fetchBalance }>
-			Get Balance
-		</button>
-		<title>Torn Balance</title>
-		<table>
-			<tr>
-				<th>Balance</th>
-			</tr>
-			<tr>
-				<td>{ Balance }</td>
-			</tr>
-		</table>
+	return <div class = 'container'>
+		<div class = 'element-card'>
+			<div class = 'element-header'>
+				<h2>Torn balance</h2>
+			</div>
+			<div class = 'element-content'>
+				<button class = 'button is-primary' style = 'justify-self: right;' onClick = { fetchBalance }>
+					Get Balance
+				</button>
+				<p>Torn Balance: { balance.value !== undefined ? customFormatEther(balance.value, 1): '' }</p>
+			</div>
+		</div>
 	</div>
 }
 
@@ -190,34 +155,36 @@ const CreateProposal = ({ writeClient }: WalletProps) => {
 		await governanceCreateProposal(writeClient.deepValue, targetAddr.value, description.value)
 	}
 
-	return <div>
-		<title>Create Proposal</title>
-		<div style = 'margin-bottom: 1rem;'>
-			<label class = 'label' >Target Address</label>
-			<input
-				class = 'input'
-				type = 'text'
-				placeholder = '0x...'
-				value = { target.value }
-				onInput = { (e) => target.value = (e.target as HTMLInputElement).value }
-			/>
+	return <div class = 'container'>
+		<div class = 'element-card'>
+			<div class = 'element-header'>
+				<h2>Create proposal</h2>
+			</div>
+			<div class = 'element-content'>
+				<div style = 'margin-bottom: 1rem;' class = 'item'>
+					<label class = 'label'>Target Address</label>
+					<input
+						class = 'input'
+						type = 'text'
+						placeholder = '0x...'
+						value = { target.value }
+						onInput = { (e) => target.value = (e.target as HTMLInputElement).value }
+					/>
+				</div>
+				<div style = 'margin-bottom: 1rem;' class = 'item'>
+					<label class = 'label'>Description</label>
+					<textarea
+						class = 'textarea'
+						placeholder = 'Proposal description'
+						value = { description.value }
+						onInput = { (e) => description.value = (e.target as HTMLTextAreaElement).value }
+					/>
+				</div>
+				<button class = 'button item' style = 'justify-self: right;' onClick = { createProposal }>
+					Create Proposal
+				</button>
+			</div>
 		</div>
-		<div style = 'margin-bottom: 1rem;'>
-			<label class = 'label'>Description</label>
-			<textarea
-				class = 'textarea'
-				placeholder = 'Proposal description'
-				value = { description.value }
-				onInput = { (e) => description.value = (e.target as HTMLTextAreaElement).value }
-			/>
-		</div>
-		<button
-			class = 'button is-primary'
-			style = 'justify-self: right;'
-			onClick = { createProposal }
-		>
-			Create Proposal
-		</button>
 	</div>
 }
 
@@ -231,25 +198,25 @@ const LockTornWithApproval = ({ writeClient }: WalletProps) => {
 		await governanceLockWithApproval(writeClient.deepValue, tornBigInt.value)
 	}
 
-	return <div>
-		<title>Lock Torn</title>
-		<div style = 'margin-bottom: 1rem;'>
-			<label class = 'label' >Torn To use</label>
-			<input
-				class = 'input'
-				type = 'text'
-				placeholder = '0x...'
-				value = { tornToUse.value }
-				onInput = { (e) => tornToUse.value = (e.target as HTMLInputElement).value }
-			/>
+	return <div class = 'container'>
+		<div class = 'element-card'>
+			<div class = 'element-header'>
+				<h2>Lock Torn</h2>
+			</div>
+			<div class = 'element-content'>
+				<label class = 'label' >Torn To use</label>
+				<input
+					class = 'input'
+					type = 'text'
+					placeholder = '1234...'
+					value = { tornToUse.value }
+					onInput = { (e) => tornToUse.value = (e.target as HTMLInputElement).value }
+				/>
+				<button class = 'button item' style = 'justify-self: right;' onClick = { LockTorn }>
+					Lock Torn
+				</button>
+			</div>
 		</div>
-		<button
-			class = 'button is-primary'
-			style = 'justify-self: right;'
-			onClick = { LockTorn }
-		>
-			Lock Torn
-		</button>
 	</div>
 }
 
@@ -263,93 +230,87 @@ const UnLockStake = ({ writeClient }: WalletProps) => {
 		await governanceUnLockStake(writeClient.deepValue, tornBigInt.value)
 	}
 
-	return <div>
-		<title>Unlock Torn</title>
-		<div style = 'margin-bottom: 1rem;'>
-			<label class = 'label' >Unlock torn</label>
-			<input
-				class = 'input'
-				type = 'text'
-				placeholder = '0x...'
-				value = { tornToUse.value }
-				onInput = { (e) => tornToUse.value = (e.target as HTMLInputElement).value }
-			/>
+	return <div class = 'container'>
+		<div class = 'element-card'>
+			<div class = 'element-header'>
+				<h2>Unlock Torn</h2>
+			</div>
+			<div class = 'element-content'>
+				<label class = 'label' >Unlock torn</label>
+				<input
+					class = 'input'
+					type = 'text'
+					placeholder = '1234...'
+					value = { tornToUse.value }
+					onInput = { (e) => tornToUse.value = (e.target as HTMLInputElement).value }
+				/>
+				<button class = 'button item' style = 'justify-self: right;' onClick = { LockTorn }>
+					UnLock Torn
+				</button>
+			</div>
 		</div>
-		<button
-			class = 'button is-primary'
-			style = 'justify-self: right;'
-			onClick = { LockTorn }
-		>
-			UnLock Torn
-		</button>
 	</div>
 }
 
-const CastVote = ({ writeClient }: WalletProps) => {
-	const proposalId = useSignal<string>('0')
+interface CastVoteProps {
+	writeClient: OptionalSignal<WriteClient>
+	proposalId: EthereumQuantity
+}
+
+const CastVote = ({ writeClient, proposalId }: CastVoteProps) => {
 	const support = useSignal<boolean>(false)
 	const contact = useSignal<string>('')
 	const message = useSignal<string>('')
 
 	const vote = async () => {
-		const parsedProposalId = EthereumQuantity.safeParse(proposalId)
-		if (!parsedProposalId.success) return
 		if (writeClient.deepValue === undefined) return
 		const contactS = contact.value
 		const messageS = message.value
-		await governanceCastVote(writeClient.deepValue, parsedProposalId.value, support.value, contactS.length || messageS.length ? { contact: contactS, message: messageS } : undefined)
+		await governanceCastVote(writeClient.deepValue, proposalId, support.value, contactS.length || messageS.length ? { contact: contactS, message: messageS } : undefined)
 	}
 
-	return <div>
-		<title>Cast vote</title>
-		<div style = 'margin-bottom: 1rem;'>
-			<label class = 'label'>Proposal ID</label>
-			<input
-				class = 'input'
-				type = 'text'
-				placeholder = '1.'
-				value = { proposalId.value }
-				onInput = { (e) => proposalId.value = (e.target as HTMLInputElement).value }
-			/>
+	return <div class = 'container'>
+		<div class = 'element-card'>
+			<div class = 'element-header'>
+				<h2>Cast vote</h2>
+			</div>
+			<div class = 'element-content'>
+				<div style = 'margin-bottom: 1rem;' class = 'item'>
+					<label class = 'label'>Support</label>
+					<select
+						class = 'select'
+						value = { support.value ? 'yes' : 'no' }
+						onInput = { (e) => support.value = (e.target as HTMLSelectElement).value === 'yes' }
+					>
+						<option value = 'yes'>Yes</option>
+						<option value = 'no'>No</option>
+					</select>
+				</div>
+				<div style = 'margin-bottom: 1rem;' class = 'item'>
+					<label class = 'label'>Contact</label>
+					<input
+						class = 'input'
+						type = 'text'
+						placeholder = ''
+						value = { contact.value }
+						onInput = { (e) => contact.value = (e.target as HTMLInputElement).value }
+					/>
+				</div>
+				<div style = 'margin-bottom: 1rem;' class = 'item'>
+					<label class = 'label'>Message</label>
+					<input
+						class = 'input'
+						type = 'text'
+						placeholder = ''
+						value = { message.value }
+						onInput = { (e) => message.value = (e.target as HTMLInputElement).value }
+					/>
+				</div>
+				<button class = 'button item' style = 'align-self: auto' onClick = { vote }>
+					Vote
+				</button>
+			</div>
 		</div>
-		<div style = 'margin-bottom: 1rem;'>
-			<label class = 'label'>Support</label>
-			<select
-				class = 'select'
-				value = { support.value ? 'yes' : 'no' }
-				onInput = { (e) => support.value = (e.target as HTMLSelectElement).value === 'yes' }
-			>
-				<option value = 'yes'>Yes</option>
-				<option value = 'no'>No</option>
-			</select>
-		</div>
-		<div style = 'margin-bottom: 1rem;'>
-			<label class = 'label'>Contact</label>
-			<input
-				class = 'input'
-				type = 'text'
-				placeholder = ''
-				value = { contact.value }
-				onInput = { (e) => contact.value = (e.target as HTMLInputElement).value }
-			/>
-		</div>
-		<div style = 'margin-bottom: 1rem;'>
-			<label class = 'label'>Message</label>
-			<input
-				class = 'input'
-				type = 'text'
-				placeholder = ''
-				value = { message.value }
-				onInput = { (e) => message.value = (e.target as HTMLInputElement).value }
-			/>
-		</div>
-		<button
-			class = 'button is-primary'
-			style = 'justify-self: right;'
-			onClick = { vote }
-		>
-			Vote
-		</button>
 	</div>
 }
 
@@ -371,12 +332,10 @@ export function App() {
 	return <main style = 'overflow: auto;'>
 		<p>{ writeClient.deepValue?.account.address } </p>
 		<ConnectWalletButton onAccountChange = { handleAccountChange } onError = { handleError } />
-		<ProposalEventsComponent/>
-		<ProposalsComponent/>
-		<Votes/>
+		<Balance writeClient = { writeClient }/>
+		<ProposalsComponent writeClient = { writeClient }/>
 		<LockTornWithApproval writeClient = { writeClient }/>
 		<UnLockStake writeClient = { writeClient }/>
 		<CreateProposal writeClient = { writeClient }/>
-		<CastVote writeClient = { writeClient }/>
 	</main>
 }

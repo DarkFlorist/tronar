@@ -17,7 +17,7 @@
 	"scripts": {
 		"build": "tsc",
 		"test": "tsc && node ./js/tests/test.js",
-		"cache": "tsc && node ./js/createCache.js"
+		"cache": "tsc && node ./js/tornado/createCache.js"
 	},
 	"exports": {
 		".": "./js/index.js"

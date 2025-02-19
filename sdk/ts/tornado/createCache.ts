@@ -4,7 +4,9 @@ import { getExecutedProposals, getProposalEvents, governanceGetProposalCount, go
 import { ExecutedProposalsCache, GovernanceVotesCache, ProposalEventsCache, ProposalsCache } from '../types/types.js'
 
 export const createCaches = async () => {
-	const { writeFileSync } = await import('fs')
+	const { writeFileSync, existsSync, mkdirSync } = await import('fs')
+	const dir = 'js/data/'
+	if (!existsSync(dir)) mkdirSync(dir)
 	const network = 'mainnet'
 	const client = createPublicClient({ chain: mainnet, transport: http('https://ethereum.dark.florist', { batch: { wait: 100 } }) })
 
@@ -13,17 +15,18 @@ export const createCaches = async () => {
 
 	console.log('Getting proposals')
 	const allProposals = await governanceListProposals(client, proposalCount)
-	writeFileSync(`js/data/proposals_${ network }.json`, JSON.stringify(ProposalsCache.serialize({ proposalCount, cache: allProposals })), 'utf8')
+	writeFileSync(`${ dir }proposals_${ network }.json`, JSON.stringify(ProposalsCache.serialize({ proposalCount, cache: allProposals })), 'utf8')
 
 	console.log('Getting proposal events')
 	const proposalEvents = await getProposalEvents(client, latestBlock)
-	writeFileSync(`js/data/proposalEvents_${ network }.json`, JSON.stringify(ProposalEventsCache.serialize({ latestBlock, cache: proposalEvents })), 'utf8')
+	writeFileSync(`${ dir }proposalEvents_${ network }.json`, JSON.stringify(ProposalEventsCache.serialize({ latestBlock, cache: proposalEvents })), 'utf8')
 
 	console.log('Getting list votes')
 	const listVotes = await governanceListVotes(client, latestBlock)
-	writeFileSync(`js/data/votes_${ network }.json`, JSON.stringify(GovernanceVotesCache.serialize({ latestBlock, cache: listVotes })), 'utf8')
+	writeFileSync(`${ dir }votes_${ network }.json`, JSON.stringify(GovernanceVotesCache.serialize({ latestBlock, cache: listVotes })), 'utf8')
 
 	console.log('Getting executed proposals')
 	const executedProposals = await getExecutedProposals(client, latestBlock)
-	writeFileSync(`js/data/executedProposals_${ network }.json`, JSON.stringify(ExecutedProposalsCache.serialize({ latestBlock, cache: executedProposals })), 'utf8')
+	writeFileSync(`${ dir }executedProposals_${ network }.json`, JSON.stringify(ExecutedProposalsCache.serialize({ latestBlock, cache: executedProposals })), 'utf8')
 }
+createCaches()

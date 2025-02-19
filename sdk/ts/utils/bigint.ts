@@ -1,7 +1,8 @@
+import { getAddress } from 'viem'
 
 export const addressString = (address: bigint) => `0x${ address.toString(16).padStart(40, '0') }`
 export const addressStringWithout0x = (address: bigint) => address.toString(16).padStart(40, '0')
-
+export const checkSummedAddressString = (address: bigint) => getAddress(addressString(address))
 export const bytes32String = (bytes32: bigint) => `0x${ bytes32.toString(16).padStart(64, '0') }`
 
 export function stringToUint8Array(data: string) {
