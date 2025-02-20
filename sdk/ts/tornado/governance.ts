@@ -1,6 +1,6 @@
 import { AbiEvent, BlockNumber, BlockTag, decodeAbiParameters, decodeFunctionData, encodeAbiParameters, encodeFunctionData, GetLogsParameters, GetLogsReturnType, parseEventLogs, TimeoutError, TransactionNotFoundError } from 'viem'
 import { mainnet } from 'viem/chains'
-import { EthereumAddress, EthereumBytes32, EthereumQuantity, ExecutedProposals, JoinedProposals, Proposal, ProposalEvents, TornadoVotingReason, VoteCommentOrUndefined } from '../types/types.js'
+import { EthereumAddress, EthereumBytes32, EthereumQuantity, ExecutedProposals, JoinedProposals, Proposal, ProposalEvents, TornadoVotingReason, VoteComment, VoteCommentOrMissing } from '../types/types.js'
 import { ABIS } from '../abi/abis.js'
 import { addressString, bigintToNumber, createRange, serialize, stringAsHexString } from '../utils/utils.js'
 import { CONTRACTS, EXECUTION_DELAY, EXECUTION_EXPIRATION, QUORUM_VOTES, TORNADO_GOVERNANCE_VOTING_DELAY } from '../utils/constants.js'
@@ -164,7 +164,10 @@ export const governanceListVotes = async (client: ReadClient, latestBlockNumber:
 	}))
 	const votingReasons = await getVotingReasons(client, moreParsed.map((x) => x.transactionHash))
 	if (moreParsed.length !== votingReasons.length) throw new Error ('length mismatch')
-	const withReasons = moreParsed.map((moreParsedOne, index) => ({ ...moreParsedOne, comment: votingReasons[index] }))
+	const withReasons = moreParsed.map((moreParsedOne, index) => {
+		if (votingReasons[index] === undefined) throw new Error ('length mismatch')
+		return { ...moreParsedOne, comment: votingReasons[index] }
+	})
 	const complete = [...cache.cache, ...withReasons]
 	await storeLocalCacheGovernanceListVotes({ latestBlock: lastFinalized.number, cache: complete.filter((event) => event.blockNumber <= lastFinalized.number) })
 	return complete
@@ -174,7 +177,7 @@ export const governanceListVotesForId = async (client: ReadClient, latestBlockNu
 	return (await governanceListVotes(client, latestBlockNumber)).filter((log) => log.proposalId === proposalId)
 }
 
-export const getVotingReasons = async (client: ReadClient, transactionHashes: EthereumBytes32[]) => {
+export const getVotingReasons = async (client: ReadClient, transactionHashes: EthereumBytes32[]): Promise<VoteCommentOrMissing[]> => {
 	return await Promise.all(transactionHashes.map(async (transactionHash) => {
 		try {
 			const abi = ABIS.mainnet.governance['Governance Impl']
@@ -184,16 +187,16 @@ export const getVotingReasons = async (client: ReadClient, transactionHashes: Et
 			if (functionName !== 'castVote' && functionName !== 'castDelegatedVote') throw new Error(`${ functionName } is not castVote or castDelegatedVote`)
 			const functionData = encodeFunctionData({ abi, functionName, args })
 			const messageData = transaction.input.slice(functionData.length)
-			if (messageData.length === 0) return undefined
+			if (messageData.length === 0) return { type: 'No comment provided' } as const
 			const jsonString = decodeAbiParameters([{ name: 'jsonString', type: 'string' }], `0x${ messageData }`)[0]
 			try {
 				const [contact, message] = TornadoVotingReason.parse(JSON.parse(jsonString))
-				return { contact, message }
+				return { type: 'Comment provided', comment: { contact, message } } as const
 			} catch(error: unknown) {
-				return undefined
+				return { type: 'Comment provided', comment: { contact: '', message: jsonString } } as const
 			}
 		} catch(error: unknown) {
-			if (error instanceof TransactionNotFoundError) return undefined
+			if (error instanceof TransactionNotFoundError) return { type: 'Unable to retrieve comment' } as const
 			throw error
 		}
 	}))
@@ -243,7 +246,7 @@ export const getProposalEvents = async (client: ReadClient, latestBlockNumber: b
 	return complete
 }
 
-export const governanceCastVote = async (client: WriteClient, proposalId: EthereumQuantity, support: boolean, comment: VoteCommentOrUndefined) => {
+export const governanceCastVote = async (client: WriteClient, proposalId: EthereumQuantity, support: boolean, comment: VoteComment | undefined) => {
 	const commentString = comment === undefined ? undefined : JSON.stringify(serialize(TornadoVotingReason, [comment.contact, comment.message] as const))
 	const input = encodeFunctionData({
 		abi: ABIS.mainnet.governance['Governance Impl'],

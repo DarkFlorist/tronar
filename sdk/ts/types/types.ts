@@ -80,9 +80,19 @@ export const ProposalEvents = funtypes.ReadonlyArray(ProposalEvent)
 export type VoteComment = funtypes.Static<typeof VoteComment>
 export const VoteComment = funtypes.ReadonlyObject({ contact: funtypes.String, message: funtypes.String })
 
-export type VoteCommentOrUndefined = funtypes.Static<typeof VoteCommentOrUndefined>
-export const VoteCommentOrUndefined = funtypes.Union(funtypes.Undefined, VoteComment)
-
+export type VoteCommentOrMissing = funtypes.Static<typeof VoteCommentOrMissing>
+export const VoteCommentOrMissing = funtypes.Union(
+	funtypes.ReadonlyObject({
+		type: funtypes.Literal('No comment provided')
+	}),
+	funtypes.ReadonlyObject({
+		type: funtypes.Literal('Unable to retrieve comment')
+	}),
+	funtypes.ReadonlyObject({
+		type: funtypes.Literal('Comment provided'),
+		comment: VoteComment
+	})
+)
 export type GovernanceVote = funtypes.Static<typeof GovernanceVote>
 export const GovernanceVote = funtypes.ReadonlyObject({
 	proposalId: EthereumQuantity,
@@ -91,7 +101,7 @@ export const GovernanceVote = funtypes.ReadonlyObject({
 	votes: EthereumQuantity,
 	blockNumber: EthereumQuantity,
 	transactionHash: EthereumBytes32,
-	comment: VoteCommentOrUndefined
+	comment: VoteCommentOrMissing
 })
 
 export type GovernanceVotes = funtypes.Static<typeof GovernanceVotes>

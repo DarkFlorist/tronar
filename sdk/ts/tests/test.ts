@@ -32,7 +32,7 @@ const listVotes = async () => {
 const votingReasons = async () => {
 	const client = createWriteClient(getMockedEthSimulateWindowEthereum(), vitalik, 0)
 	const votingReason = await getVotingReasons(client, [0x62ac750b4f522bad1711d313fac4d4e0015246ecb6f2d39b86cec067601df326n])
-	if (votingReason[0]?.message !== 'Torn holders who have skin in the game will be the admins for the new group. ') throw new Error('Wrong voting reason')
+	if (!(votingReason[0]?.type === 'Comment provided' && votingReason[0].comment.message === 'Torn holders who have skin in the game will be the admins for the new group. ')) throw new Error('Wrong voting reason')
 }
 
 const mintTorn = async (mockWindowEthereum: MockWindowEthereum, mintAmounts: { address: EthereumAddress, amount: EthereumQuantity }[]) => {
@@ -84,7 +84,7 @@ const createProposalAndVote = async() => {
 	if (ourVote.support !== true) throw new Error('Wrong support')
 	if (ourVote.voter !== vitalik) throw new Error('Wrong voterAddress')
 	if (ourVote.votes !== tornToUse) throw new Error('Wrong votes count')
-	if (!(ourVote.comment && ourVote.comment.contact === votingReason.contact && ourVote.comment.message === votingReason.message)) throw new Error('Wrong voting reason')
+	if (!(ourVote.comment.type === 'Comment provided' && ourVote.comment.comment.contact === votingReason.contact && ourVote.comment.comment.message === votingReason.message)) throw new Error('Wrong voting reason')
 
 	await mockedWindowEthereum.advanceTime(100000000000n)
 	await governanceUnLockStake(client, tornToUse)

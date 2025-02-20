@@ -3,6 +3,7 @@ import { OptionalSignal, useOptionalSignal } from '../utils/OptionalSignal.js'
 import 'viem/window'
 import { bytes32String, connectToWallet, checkSummedAddressString, createReadClient, createWriteClient, EthereumAddress, EthereumQuantity, governanceCastVote, governanceCreateProposal, governanceLockWithApproval, governanceUnLockStake, GovernanceVote, WriteClient, getTimestamp, getProposalStatus, getJoinedProposals, getTornBalance, JoinedProposals, JoinedProposal } from 'tronar'
 import { formatEther } from 'viem'
+import { VoteCommentOrMissing } from 'tronar/types/types.js'
 
 export type AccountAddress = `0x${ string }`
 
@@ -29,7 +30,6 @@ export function customFormatEther(value: bigint, maxDecimals: number = 18, round
 	if (rounding === 'ceil' || (rounding === 'round' && firstDecimal >= 5)) b += power
 	return formatEther(b)
 }
-
 
 const ConnectWalletButton = ({ onAccountChange }: ConnectWalletButtonProps) => {
 	const loadingAccount = useSignal<boolean>(false)
@@ -68,6 +68,14 @@ const ProposalsComponent = ({ writeClient }: WalletProps) => {
 		proposals.value = await getJoinedProposals(client)
 	}
 
+	const getCommentFields = (comment: VoteCommentOrMissing) => {
+		if (comment.type === 'Comment provided') {
+			if ( comment.comment.contact.length === 0) return comment.comment.message
+			return <><b> { comment.comment.contact } </b>: { comment.comment.message }</>
+		}
+		return comment.type
+	}
+
 	return (
 		<div class = 'proposal-container'>
 			<button class = 'button' onClick = { fetchJoinedProposals }>
@@ -99,8 +107,7 @@ const ProposalsComponent = ({ writeClient }: WalletProps) => {
 									<div>Voter</div>
 									<div>Support</div>
 									<div>Votes</div>
-									<div>Contact</div>
-									<div>Message</div>
+									<div>Comment</div>
 									<div>Transaction Hash</div>
 								</div>
 								{ proposal.votes.map((vote: GovernanceVote) => (
@@ -109,8 +116,7 @@ const ProposalsComponent = ({ writeClient }: WalletProps) => {
 										<div>{ checkSummedAddressString(vote.voter) }</div>
 										<div>{ vote.support ? 'true' : 'false' }</div>
 										<div>{ customFormatEther(vote.votes, 1) }</div>
-										<div>{ vote.comment ? vote.comment.contact : '-' }</div>
-										<div>{ vote.comment ? vote.comment.message : '-' }</div>
+										<div>{ getCommentFields(vote.comment) }</div>
 										<div>{ bytes32String(vote.transactionHash) }</div>
 									</div>
 								)) }
