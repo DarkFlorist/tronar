@@ -1,8 +1,8 @@
 import { useSignal } from '@preact/signals'
 import { OptionalSignal, useOptionalSignal } from '../utils/OptionalSignal.js'
 import 'viem/window'
-import { bytes32String, connectToWallet, checkSummedAddressString, createReadClient, createWriteClient, EthereumAddress, EthereumQuantity, governanceCastVote, governanceCreateProposal, governanceLockWithApproval, governanceUnLockStake, GovernanceVote, WriteClient, getTimestamp, getProposalStatus, getJoinedProposals, getTornBalance, JoinedProposals, JoinedProposal } from 'tronar'
-import { formatEther } from 'viem'
+import { bytes32String, connectToWallet, checkSummedAddressString, createReadClient, createWriteClient, EthereumAddress, EthereumQuantity, governanceCastVote, governanceCreateProposal, governanceLockWithApproval, governanceUnLockStake, GovernanceVote, WriteClient, getTimestamp, getProposalStatus, getJoinedProposals, getTornBalance, JoinedProposals, JoinedProposal, clearLocalStorageCache, tornAllowanceForGovernance, approveTornForGovernance } from 'tronar'
+import { formatEther, parseEther } from 'viem'
 import { VoteCommentOrMissing } from 'tronar/types/types.js'
 
 export type AccountAddress = `0x${ string }`
@@ -65,7 +65,7 @@ const ProposalsComponent = ({ writeClient }: WalletProps) => {
 	const fetchJoinedProposals = async () => {
 		const client = createReadClient(window.ethereum)
 		timestamp.value = await getTimestamp(client)
-		proposals.value = await getJoinedProposals(client)
+		proposals.value = await getJoinedProposals(client, undefined)
 	}
 
 	const getCommentFields = (comment: VoteCommentOrMissing) => {
@@ -150,6 +150,27 @@ const Balance = ({ writeClient }: WalletProps) => {
 	</div>
 }
 
+const Allowance = ({ writeClient }: WalletProps) => {
+	const allowance = useSignal<EthereumQuantity | undefined>(undefined)
+	const fetchBalance = async () => {
+		if (writeClient.deepValue === undefined) return
+		allowance.value = await tornAllowanceForGovernance(writeClient.deepValue, EthereumAddress.parse(writeClient.deepValue.account.address))
+	}
+	return <div class = 'container'>
+		<div class = 'element-card'>
+			<div class = 'element-header'>
+				<h2>Torn Governance Allowance</h2>
+			</div>
+			<div class = 'element-content'>
+				<button class = 'button is-primary' style = 'justify-self: right;' onClick = { fetchBalance }>
+					Check Allowance
+				</button>
+				<p>Torn Allowance: { allowance.value !== undefined ? customFormatEther(allowance.value, 1): '' }</p>
+			</div>
+		</div>
+	</div>
+}
+
 const CreateProposal = ({ writeClient }: WalletProps) => {
 	const target = useSignal<string>('')
 	const description = useSignal<string>('')
@@ -197,11 +218,10 @@ const CreateProposal = ({ writeClient }: WalletProps) => {
 const LockTornWithApproval = ({ writeClient }: WalletProps) => {
 	const tornToUse = useSignal<string>('')
 
-	const LockTorn = async () => {
+	const lockTorn = async () => {
 		if (writeClient.deepValue === undefined) return
-		const tornBigInt = EthereumQuantity.safeParse(tornToUse.value)
-		if (!tornBigInt.success) return
-		await governanceLockWithApproval(writeClient.deepValue, tornBigInt.value)
+		const tornBigInt = parseEther(tornToUse.value)
+		await governanceLockWithApproval(writeClient.deepValue, tornBigInt)
 	}
 
 	return <div class = 'container'>
@@ -218,8 +238,39 @@ const LockTornWithApproval = ({ writeClient }: WalletProps) => {
 					value = { tornToUse.value }
 					onInput = { (e) => tornToUse.value = (e.target as HTMLInputElement).value }
 				/>
-				<button class = 'button item' style = 'justify-self: right;' onClick = { LockTorn }>
+				<button class = 'button item' style = 'justify-self: right;' onClick = { lockTorn }>
 					Lock Torn
+				</button>
+			</div>
+		</div>
+	</div>
+}
+
+const AllowGovernance = ({ writeClient }: WalletProps) => {
+	const tornToUse = useSignal<string>('')
+
+	const approveTorn = async () => {
+		if (writeClient.deepValue === undefined) return
+		const tornBigInt = parseEther(tornToUse.value)
+		await approveTornForGovernance(writeClient.deepValue, tornBigInt)
+	}
+
+	return <div class = 'container'>
+		<div class = 'element-card'>
+			<div class = 'element-header'>
+				<h2>Approve Governance</h2>
+			</div>
+			<div class = 'element-content'>
+				<label class = 'label' >Torn To Approve</label>
+				<input
+					class = 'input'
+					type = 'text'
+					placeholder = '1234...'
+					value = { tornToUse.value }
+					onInput = { (e) => tornToUse.value = (e.target as HTMLInputElement).value }
+				/>
+				<button class = 'button item' style = 'justify-self: right;' onClick = { approveTorn }>
+					Approve
 				</button>
 			</div>
 		</div>
@@ -231,9 +282,8 @@ const UnLockStake = ({ writeClient }: WalletProps) => {
 
 	const LockTorn = async () => {
 		if (writeClient.deepValue === undefined) return
-		const tornBigInt = EthereumQuantity.safeParse(tornToUse.value)
-		if (!tornBigInt.success) return
-		await governanceUnLockStake(writeClient.deepValue, tornBigInt.value)
+		const tornBigInt = parseEther(tornToUse.value)
+		await governanceUnLockStake(writeClient.deepValue, tornBigInt)
 	}
 
 	return <div class = 'container'>
@@ -320,6 +370,25 @@ const CastVote = ({ writeClient, proposalId }: CastVoteProps) => {
 	</div>
 }
 
+const ClearLocalStorage = () => {
+	const clearCache = () => {
+		clearLocalStorageCache()
+	}
+
+	return <div class = 'container'>
+		<div class = 'element-card'>
+			<div class = 'element-header'>
+				<h2>Clear Local Storage</h2>
+			</div>
+			<div class = 'element-content'>
+				<button class = 'button item' style = 'align-self: auto' onClick = { clearCache }>
+					Clear Local Storage
+				</button>
+			</div>
+		</div>
+	</div>
+}
+
 export function App() {
 	const writeClient = useOptionalSignal<WriteClient>(undefined)
 	const handleAccountChange = (address: EthereumAddress | undefined) => {
@@ -343,5 +412,8 @@ export function App() {
 		<LockTornWithApproval writeClient = { writeClient }/>
 		<UnLockStake writeClient = { writeClient }/>
 		<CreateProposal writeClient = { writeClient }/>
+		<Allowance writeClient = { writeClient }/>
+		<AllowGovernance writeClient = { writeClient }/>
+		<ClearLocalStorage/>
 	</main>
 }

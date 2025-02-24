@@ -119,6 +119,8 @@ export const ExecutedProposals = funtypes.ReadonlyArray(ExecutedProposal)
 export type ProposalsCache = funtypes.Static<typeof ProposalsCache>
 export const ProposalsCache = funtypes.ReadonlyObject({
 	proposalCount: EthereumQuantity,
+	dataRetrievedFinalizedTimeStamp: EthereumQuantity,
+	dataRetrievedFinalizedBlockNumber: EthereumQuantity,
 	cache: Proposals
 })
 

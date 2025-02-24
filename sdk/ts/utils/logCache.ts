@@ -45,7 +45,7 @@ export const getCacheProposals = async () => {
 		if (localData) return ProposalsCache.parse(JSON.parse(localData))
 	}
 	const data = await fetchJSON(`proposals_${ network }`)
-	return data ? ProposalsCache.parse(data) : { proposalCount: 0n, cache: [] }
+	return data ? ProposalsCache.parse(data) : { proposalCount: 0n, cache: [], dataRetrievedFinalizedBlockNumber: 0n, dataRetrievedFinalizedTimeStamp: 0n }
 }
 
 export const getCacheProposalEvents = async () => {
@@ -93,4 +93,8 @@ export const storeLocalCacheGovernanceListVotes = async (cache: GovernanceVotesC
 export const storeLocalExecutedProposals = async (cache: ExecutedProposalsCache) => {
 	if (isNode) return // TODO: add node support
 	localStorage.setItem(`executedProposals_${ network }`, JSON.stringify(ExecutedProposalsCache.serialize(cache)))
+}
+
+export const clearLocalStorageCache = () => {
+	localStorage.clear()
 }

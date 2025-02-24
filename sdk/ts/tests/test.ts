@@ -1,4 +1,4 @@
-import { approveTorn, getProposal, getProposalEvents, getTornBalance, getVotingReasons, governanceCastVote, governanceCreateProposal, governanceGetProposalCount, governanceListProposals, governanceListVotesForId, governanceLockWithApproval, governanceUnLockStake } from '../tornado/governance.js'
+import { approveTornForGovernance, getJoinedProposals, getProposal, getProposalEvents, getTornBalance, getVotingReasons, governanceCastVote, governanceCreateProposal, governanceGetProposalCount, governanceListProposals, governanceLockWithApproval, governanceUnLockStake } from '../tornado/governance.js'
 import { EthereumAddress, EthereumQuantity } from '../types/types.js'
 import { CONTRACTS, TORNADO_GOVERNANCE_VOTING_DELAY } from '../utils/constants.js'
 import { runTestsSequentially } from '../testsuite/ethSimulateTestSuite.js'
@@ -24,9 +24,8 @@ const listProposals = async () => {
 
 const listVotes = async () => {
 	const client = createWriteClient(getMockedEthSimulateWindowEthereum(), vitalik, 0)
-	const latestBlock = await client.getBlockNumber()
-	const votes = await governanceListVotesForId(client, latestBlock, 1n)
-	if (votes.length <= 0n) throw new Error('No votes')
+	const proposal = (await getJoinedProposals(client, undefined)).find((proposal) => proposal.proposalId === 1n)
+	if (proposal === undefined || proposal.votes.length <= 0n) throw new Error('No votes')
 }
 
 const votingReasons = async () => {
@@ -58,7 +57,7 @@ const createProposalAndVote = async() => {
 	await mintTorn(mockedWindowEthereum, [{ address: vitalik, amount: tornToUse }])
 	const tornBalance = await getTornBalance(client, vitalik)
 	if (tornBalance !== tornToUse) throw new Error(`Wrong torn balance ${ tornBalance } !== ${ tornToUse }`)
-	await approveTorn(client, CONTRACTS.mainnet.governance['Governance Contract'], tornToUse)
+	await approveTornForGovernance(client, tornToUse)
 	await governanceLockWithApproval(client, tornToUse)
 	await governanceCreateProposal(client, target, description)
 	const newProposalId = await governanceGetProposalCount(client)
@@ -77,9 +76,12 @@ const createProposalAndVote = async() => {
 	await mockedWindowEthereum.advanceTime(TORNADO_GOVERNANCE_VOTING_DELAY)
 	const votingReason = { contact: 'Vitalik', message: 'My vote' }
 	await governanceCastVote(client, newProposalId, true, votingReason)
-	const votes = await governanceListVotesForId(client, await client.getBlockNumber(), newProposalId)
-	const ourVote = votes[0]
-	if (votes.length !== 1 || ourVote === undefined) throw new Error('Cant see our vote')
+
+	const joinedProposals = await getJoinedProposals(client, undefined)
+	const ourProposal = joinedProposals.find((proposal) => proposal.proposalId === newProposalId)
+	if (ourProposal === undefined) throw new Error('Did nt find our proposal')
+	const ourVote = ourProposal.votes[0]
+	if (ourProposal.votes.length !== 1 || ourVote === undefined) throw new Error('Cant see our vote')
 	if (ourVote.proposalId !== newProposalId) throw new Error('Wrong proposalid')
 	if (ourVote.support !== true) throw new Error('Wrong support')
 	if (ourVote.voter !== vitalik) throw new Error('Wrong voterAddress')
