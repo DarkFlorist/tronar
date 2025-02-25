@@ -139,11 +139,12 @@ export const governanceListProposalsAndCache = async (client: ReadClient, propos
 	const lastFinalized = await client.getBlock({ includeTransactions: false, blockTag: 'finalized' })
 	const latestFinalizedTimeStamp = lastFinalized.timestamp
 	const cache = await getCacheProposals()
-	const missingProposals = (createRange(Number(cache.proposalCount), Number(proposalCount))).map((x) => BigInt(x))
+	const missingProposals = (createRange(Number(cache.proposalCount + 1n), Number(proposalCount))).map((x) => BigInt(x))
 	const nonCompleteProposals = cache.cache.filter((proposal) => proposal.endTime >= cache.dataRetrievedFinalizedTimeStamp)
-	const complete =  [...cache.cache, ...await Promise.all([...missingProposals, ...nonCompleteProposals.map((p) => p.proposalId)].map((proposalId) => getProposal(client, proposalId)))]
+	const completeProposals = cache.cache.filter((proposal) => proposal.endTime < cache.dataRetrievedFinalizedTimeStamp)
+	const allProposals =  [...completeProposals, ...await Promise.all([...missingProposals, ...nonCompleteProposals.map((p) => p.proposalId)].map((proposalId) => getProposal(client, proposalId)))]
 
-	const proposalsThatExistInFinalizedState = complete.filter((event) => event.startTime - TORNADO_GOVERNANCE_VOTING_DELAY <= latestFinalizedTimeStamp)
+	const proposalsThatExistInFinalizedState = allProposals.filter((event) => event.startTime - TORNADO_GOVERNANCE_VOTING_DELAY <= latestFinalizedTimeStamp)
 	const updatedCache = {
 		proposalCount: bigIntMax(proposalsThatExistInFinalizedState.map((proposal) => proposal.proposalId)),
 		cache: proposalsThatExistInFinalizedState.sort((a, b) => Number(a.proposalId - b.proposalId)),
@@ -151,7 +152,7 @@ export const governanceListProposalsAndCache = async (client: ReadClient, propos
 		dataRetrievedFinalizedBlockNumber: lastFinalized.number
 	}
 	await storeLocalCacheProposals(updatedCache)
-	return { proposals: complete, finalizedProposals: updatedCache }
+	return { proposals: allProposals, finalizedProposals: updatedCache }
 }
 
 export const governanceListProposals = async (client: ReadClient, proposalCount: bigint) => {

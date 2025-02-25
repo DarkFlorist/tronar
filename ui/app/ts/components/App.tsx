@@ -65,7 +65,7 @@ const ProposalsComponent = ({ writeClient }: WalletProps) => {
 	const fetchJoinedProposals = async () => {
 		const client = createReadClient(window.ethereum)
 		timestamp.value = await getTimestamp(client)
-		proposals.value = await getJoinedProposals(client, undefined)
+		proposals.value = await getJoinedProposals(client, 'https://tornadowithdraw.com/1/events')
 	}
 
 	const getCommentFields = (comment: VoteCommentOrMissing) => {
